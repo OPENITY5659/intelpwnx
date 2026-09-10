@@ -135,7 +135,11 @@ class AdaptiveSolver:
                 # Step 2: 观察
                 feedback = record.feedback
                 if not feedback:
-                    self.log("  ⚠ 无有效反馈，跳过调整")
+                    self.log("  ⚠ 无有效反馈")
+                    # 无反馈时对栈类方法做 offset 系统扫描 (失败常因 offset 检测错)
+                    if method_name in ('rop', 'ret2libc', 'ret2win', 'one_gadget') and \
+                            self._offset_scan_step(base_params, analysis, gadgets):
+                        continue
                     break
                 
                 self.log(f"  错误类型: {feedback.error_type.value}")
@@ -147,7 +151,12 @@ class AdaptiveSolver:
                 record.adjustment = adjustment
                 
                 if not adjustment:
-                    self.log("  ⚠ 无法生成调整建议，切换方法")
+                    self.log("  ⚠ 无法生成调整建议")
+                    # 无明确调整方向时, 对栈类方法做 offset 系统扫描兜底
+                    if method_name in ('rop', 'ret2libc', 'ret2win', 'one_gadget') and \
+                            self._offset_scan_step(base_params, analysis, gadgets):
+                        continue
+                    self.log("  切换方法")
                     break
                 
                 self.log(f"  调整: {adjustment.kind} → {adjustment.description}")
@@ -260,9 +269,32 @@ class AdaptiveSolver:
             win_funcs = funcs.get('win', [])
             if win_funcs:
                 params['ret_addr'] = int(win_funcs[0][1], 16)
-        
+
         return params
-    
+
+    # offset 系统扫描候选: 来自公开 pwn writeup (ctf-wiki 等) 的高频 buf->ret 距离。
+    # 失败且无明确反馈方向时, 按此列表逐一尝试, 覆盖 analyzer buffer 检测不准的场景。
+    OFFSET_CANDIDATES = (0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0x48, 0x50,
+                         0x58, 0x60, 0x68, 0x70, 0x78, 0x80, 0x88, 0x8c,
+                         0x90, 0x98, 0xa0, 0xa8, 0xb0)
+
+    def _offset_scan_step(self, params: dict, analysis: dict, gadgets: dict) -> bool:
+        """无反馈失败时: 把 offset 推进到 OFFSET_CANDIDATES 的下一个未试值。
+
+        返回 True 表示已切换到新 offset (调用方应 continue 重试),
+        False 表示候选耗尽 (调用方应 break 换方法)。
+        """
+        tried = params.setdefault('_offsets_tried', set())
+        cur = params.get('offset', 0x40)
+        tried.add(cur)
+        for cand in self.OFFSET_CANDIDATES:
+            if cand not in tried:
+                params['offset'] = cand
+                self.log(f"    ↳ offset 扫描: {hex(cur)} → {hex(cand)}")
+                return True
+        self.log("    ↳ offset 候选耗尽")
+        return False
+
     def _attempt(self, attempt_id: int, method: dict, params: dict,
                  analysis: dict, gadgets: dict) -> AttemptRecord:
         """执行一次尝试"""

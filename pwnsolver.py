@@ -162,6 +162,29 @@ def main():
     sub.add_parser('gui', help='launch PwnSolver GUI')
     p_web = sub.add_parser('web', help='launch PwnSolver web API')
     p_web.add_argument('port', nargs='?', default='8787')
+
+    p_wsolve = sub.add_parser('websolve', help='solve a Web CTF challenge (source dir)')
+    p_wsolve.add_argument('target', help='web challenge source directory')
+    p_wsolve.add_argument('-u', '--url', default='', help='running target URL (else auto-start env)')
+    p_wsolve.add_argument('--analyze-only', action='store_true', help='static analysis only')
+    p_wsolve.add_argument('-t', '--timeout', type=int, default=10)
+    p_wsolve.add_argument('--max-attempts', type=int, default=60)
+    p_wsolve.add_argument('-v', '--verbose', action='store_true')
+    p_wsolve.add_argument('--json', action='store_true', help='JSON output')
+
+    p_webdl = sub.add_parser('webdl', help='batch download web CTF challenge sources')
+    p_webdl.add_argument('--years', default='2022-2025')
+    p_webdl.add_argument('--events', default='')
+    p_webdl.add_argument('--per-event', type=int, default=8)
+    p_webdl.add_argument('--max-events', type=int, default=0)
+    p_webdl.add_argument('--dry-run', action='store_true')
+
+    p_webbench = sub.add_parser('webbench', help='batch verify web challenges')
+    p_webbench.add_argument('--root', default='', help='challenge root (default external_challs/web_challs)')
+    p_webbench.add_argument('--mode', choices=['analyze', 'solve'], default='analyze')
+    p_webbench.add_argument('--timeout', type=int, default=120)
+    p_webbench.add_argument('--tag', default='last')
+    p_webbench.add_argument('--limit', type=int, default=0)
     sub.add_parser('check', help='check environment in selected runtime')
     sub.add_parser('router', help='show runtime routing decision')
     sub.add_parser('build', help='build x86_64 Linux sandbox image')
@@ -173,6 +196,47 @@ def main():
         return subprocess.call([sys.executable, str(script)])
     if args.command == 'web':
         return subprocess.call([sys.executable, str(ROOT / 'pwn_web.py'), args.port])
+    if args.command == 'websolve':
+        sys.path.insert(0, str(ROOT))
+        from web_solver.solver import WebSolver
+        solver = WebSolver(timeout=args.timeout, verbose=True,
+                           max_attempts=args.max_attempts)
+        if args.analyze_only:
+            r = solver.analyze(args.target)
+        else:
+            r = solver.solve(args.target, target_url=args.url)
+        if args.json:
+            import json as _json
+            print(_json.dumps(r.__dict__, ensure_ascii=False, indent=2, default=str))
+        else:
+            print(f"\n题目: {args.target}")
+            print(f"  技术栈: {r.stack}  框架: {r.framework or '-'}")
+            print(f"  判定: {r.primary_vuln} (置信度 {r.confidence})  候选: {r.top_vulns}")
+            if r.url:
+                print(f"  环境: {r.env_kind} {r.url}")
+            if r.success:
+                print(f"  ✅ FLAG: {r.flag}\n  payload: {r.payload_desc}")
+            else:
+                print(f"  ❌ {r.error} (尝试 {r.attempts} 次, {r.elapsed}s)")
+        return 0 if r.success else 1
+    if args.command == 'webdl':
+        cmd = [sys.executable, str(ROOT / 'scripts' / 'fetch_web_challs.py'),
+               '--years', args.years, '--per-event', str(args.per_event)]
+        if args.events:
+            cmd += ['--events', args.events]
+        if args.max_events:
+            cmd += ['--max-events', str(args.max_events)]
+        if args.dry_run:
+            cmd += ['--dry-run']
+        return subprocess.call(cmd)
+    if args.command == 'webbench':
+        cmd = [sys.executable, str(ROOT / 'scripts' / 'web_bench.py'),
+               '--mode', args.mode, '--timeout', str(args.timeout), '--tag', args.tag]
+        if args.root:
+            cmd += ['--root', args.root]
+        if args.limit:
+            cmd += ['--limit', str(args.limit)]
+        return subprocess.call(cmd)
     if args.command == 'check':
         return cmd_check(args)
     if args.command == 'router':

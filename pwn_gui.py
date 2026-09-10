@@ -569,6 +569,9 @@ class PwnSolverGUI:
                                      font=('Consolas', 10, 'bold'))
         self._render_vuln_demo()
         self.notebook.add(tab_demo, text=' 📚 漏洞演示 ')
+
+        # ---- Tab5: Web 题解题 ----
+        self._build_web_tab()
         
         # 底部状态栏
         self.status_var = tk.StringVar(value="就绪")
@@ -946,6 +949,146 @@ class PwnSolverGUI:
                 self.demo_text.tag_add('demo_hit', f'{line}.0', f'{line}.0 lineend')
         self.demo_text.config(state='disabled')
     
+    # ========== Web 解题 Tab ==========
+    def _build_web_tab(self):
+        tab = tk.Frame(self.notebook, bg='#1e1e2e')
+        # 顶部配置行
+        cfg = tk.Frame(tab, bg='#1e1e2e')
+        cfg.pack(fill='x', pady=6, padx=6)
+
+        tk.Label(cfg, text="📁 题目源码目录:", fg='#a6adc8', bg='#1e1e2e',
+                font=('Consolas', 9)).grid(row=0, column=0, sticky='w')
+        self.web_dir_var = tk.StringVar()
+        tk.Entry(cfg, textvariable=self.web_dir_var, width=52,
+                bg='#313244', fg='#cdd6f4', insertbackground='#cdd6f4',
+                font=('Consolas', 9)).grid(row=0, column=1, padx=5)
+        tk.Button(cfg, text="浏览", command=self._browse_web_dir,
+                bg='#45475a', fg='#cdd6f4', relief='flat',
+                font=('Consolas', 8)).grid(row=0, column=2)
+
+        tk.Label(cfg, text="🌐 目标URL(可空):", fg='#a6adc8', bg='#1e1e2e',
+                font=('Consolas', 9)).grid(row=0, column=3, sticky='w', padx=(15,0))
+        self.web_url_var = tk.StringVar()
+        tk.Entry(cfg, textvariable=self.web_url_var, width=26,
+                bg='#313244', fg='#cdd6f4', insertbackground='#cdd6f4',
+                font=('Consolas', 9)).grid(row=0, column=4, padx=5)
+
+        btns = tk.Frame(tab, bg='#1e1e2e')
+        btns.pack(fill='x', padx=6)
+        self.web_analyze_btn = tk.Button(btns, text="🔍 静态分析",
+                command=lambda: self._run_web('analyze'),
+                bg='#a6e3a1', fg='#1e1e2e', font=('Consolas', 10, 'bold'),
+                relief='flat', padx=14, pady=4, cursor='hand2')
+        self.web_analyze_btn.pack(side='left', padx=3)
+        self.web_solve_btn = tk.Button(btns, text="🚀 解题(打payload)",
+                command=lambda: self._run_web('solve'),
+                bg='#89b4fa', fg='#1e1e2e', font=('Consolas', 10, 'bold'),
+                relief='flat', padx=14, pady=4, cursor='hand2')
+        self.web_solve_btn.pack(side='left', padx=3)
+        tk.Button(btns, text="📥 批量下载题源",
+                command=self._web_download,
+                bg='#cba6f7', fg='#1e1e2e', font=('Consolas', 10, 'bold'),
+                relief='flat', padx=14, pady=4, cursor='hand2').pack(side='left', padx=3)
+        tk.Label(btns, text="分析=只看漏洞类型; 解题=起环境/打URL找flag",
+                fg='#6c7086', bg='#1e1e2e', font=('Consolas', 8)).pack(side='left', padx=10)
+
+        # 结果区
+        self.web_output = scrolledtext.ScrolledText(tab,
+                bg='#11111b', fg='#cdd6f4', insertbackground='#cdd6f4',
+                font=('Consolas', 10), wrap='word', relief='flat', borderwidth=0)
+        self.web_output.pack(fill='both', expand=True, padx=6, pady=6)
+        self.web_output.tag_configure('success', foreground='#a6e3a1')
+        self.web_output.tag_configure('error', foreground='#f38ba8')
+        self.web_output.tag_configure('info', foreground='#89b4fa')
+        self.web_output.tag_configure('bold', foreground='#f9e2af',
+                                      font=('Consolas', 10, 'bold'))
+        self.web_output.tag_configure('flag', foreground='#f9e2af',
+                                      font=('Consolas', 11, 'bold'))
+        self.notebook.add(tab, text=' 🌐 Web解题 ')
+
+    def _browse_web_dir(self):
+        d = filedialog.askdirectory(title="选择 Web 题目源码目录")
+        if d:
+            self.web_dir_var.set(d)
+
+    def _web_log(self, msg, tag=None):
+        self.web_output.insert(tk.END, msg + '\n', tag)
+        self.web_output.see(tk.END)
+
+    def _run_web(self, mode):
+        chall_dir = self.web_dir_var.get().strip()
+        if not chall_dir:
+            messagebox.showerror("错误", "请先选择题目源码目录!")
+            return
+        url = self.web_url_var.get().strip()
+        self.web_output.delete(1.0, tk.END)
+        self._web_log(f"{'='*56}", 'bold')
+        self._web_log(f"🌐 Web {'静态分析' if mode=='analyze' else '解题'}: {chall_dir}", 'bold')
+        if url:
+            self._web_log(f"目标: {url}", 'info')
+        self._web_log('='*56, 'bold')
+        for b in (self.web_analyze_btn, self.web_solve_btn):
+            b.config(state='disabled')
+        self.status_var.set(f"Web {mode} 中...")
+
+        def worker():
+            try:
+                sys.path.insert(0, str(Path(__file__).parent))
+                from web_solver.solver import WebSolver
+                solver = WebSolver(timeout=10, verbose=False, max_attempts=60)
+                if mode == 'analyze':
+                    r = solver.analyze(chall_dir)
+                else:
+                    r = solver.solve(chall_dir, target_url=url)
+                self._ui_call(self._render_web_result, r, mode)
+            except Exception as e:
+                import traceback
+                self._ui_call(self._web_log, f"[错误] {e}\n{traceback.format_exc()[-500:]}", 'error')
+                self._ui_call(self._web_done_btns)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _web_done_btns(self):
+        for b in (self.web_analyze_btn, self.web_solve_btn):
+            b.config(state='normal')
+        self.status_var.set("就绪")
+
+    def _render_web_result(self, r, mode):
+        self._web_log(f"\n📦 技术栈: {r.stack}   框架: {r.framework or '-'}", 'info')
+        self._web_log(f"🎯 判定: {r.primary_vuln} (置信度 {r.confidence})", 'bold')
+        if r.top_vulns:
+            self._web_log(f"   候选: " + ', '.join(f'{v}@{c}' for v, c in r.top_vulns))
+        if r.url:
+            self._web_log(f"🌍 环境: {r.env_kind} → {r.url}", 'info')
+        if mode == 'solve':
+            self._web_log(f"🗲 尝试 {r.attempts} 次 payload, 耗时 {r.elapsed}s")
+            if r.success:
+                self._web_log(f"\n✅ FLAG: {r.flag}", 'flag')
+                self._web_log(f"   利用: [{r.primary_vuln}] {r.payload_desc}", 'success')
+                if r.evidence:
+                    snippet = r.evidence[:200].replace('\n', ' ')
+                    self._web_log(f"   证据: {snippet}", 'info')
+            else:
+                self._web_log(f"\n❌ 未解出: {r.error}", 'error')
+        # 展开分析日志
+        if r.log:
+            self._web_log('\n--- 执行日志 ---', 'info')
+            for line in r.log:
+                self._web_log('  ' + line)
+        self._web_done_btns()
+        self.status_var.set(f"Web {mode} 完成" + (" — 拿到 flag" if r.success else ""))
+
+    def _web_download(self):
+        self.web_output.delete(1.0, tk.END)
+        self._web_log("📥 批量下载 web 题源码 (sajjadium/ctf-archives) ...", 'bold')
+        self._web_log("   目标: external_challs/web_challs/", 'info')
+        self._web_log("   提示: 设置 GITHUB_TOKEN 环境变量可避免限流", 'info')
+        script = Path(__file__).parent / 'scripts' / 'fetch_web_challs.py'
+        cmd = f"python {script} --years 2023-2025 --per-event 6 --max-events 20"
+        def worker():
+            rc = self._run_stream(cmd, timeout=1800)
+            self._ui_call(self._web_log, f"\n下载结束 rc={rc}, 见 external_challs/web_challs/manifest.json", 'bold')
+        threading.Thread(target=worker, daemon=True).start()
+
     # ========== 程序实际运行 (不带 exp) ==========
     def _start_run_binary(self):
         binary = self.binary_var.get().strip()
