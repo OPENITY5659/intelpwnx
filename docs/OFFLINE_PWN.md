@@ -54,7 +54,7 @@ python3 pwnsolver.py fetchlibc --arch amd64 --arch i386
 | orange_cat_diary（2.23 House of Orange） | ✅ 能打通 | 需给配对 `-l libc-2.23.so -d ld-2.23.so` |
 | GoScanner 栈溢出（如 CISCN2024 gostack） | ⚠ 已接通分派 | 之前模板根本不可达；现在会分派并修了预读判定 |
 | 堆题（UAF/tcache/off-by-one/unsorted） | ⚠ 识别+诊断，自动利用有限 | 见下 |
-| 格式化字符串 | ⚠ 偏移与目标已可用，写入未落地 | 见下 |
+| 格式化字符串 | ✅ 能打通（全局判断变量写入） | 见下；GOT 覆盖路线需 libc 基址 |
 | heap+seccomp / FSOP | ❌ 只给结构化诊断 | 需要 House of Apple 类链 |
 
 ### 堆题：不再假装打过了
@@ -73,14 +73,20 @@ python3 pwnsolver.py fetchlibc --arch amd64 --arch i386
 `create` 是否"先拷贝、后把函数指针写回默认值"由 `create_resets_funcptr()` 反汇编判定 ——
 这类题改指针路线根本不成立，必须走 double-free/tcache。判错的代价是白跑一轮，所以宁可判不可行。
 
-### 格式化字符串：已完成与未完成
+### 格式化字符串：已打通（自算参数位的写入器）
 
-已可用（实测 `challenges/fmtstr`）：运行时 `%N$p` 逐位置探测参数偏移（得到 6）、
-自动收集写目标（分析器的"全局变量 vs 立即数"比较点，得到 `0x40406c = 0xdeadbeef`）。
+`pwn_solver/fmtwriter.py` 自己算参数位做 `%hhn` 分块写，**不用** pwntools 的
+`fmtstr_payload` —— 实测 `challenges/fmtstr` 用 `%6$p` 能确认缓冲区开头就是第 6 个参数，
+而 `fmtstr_payload(6, {...})` 生成的是 `%13$hn/%14$hn`（地址实际落在第 9/10 个），所以
+写不进去。写入器按"目标字节值升序 + 累计打印量"排列，并把地址槽补齐到 8 字节对齐；
+它用 `inspect.getsource()` 内联进生成的脚本，避免"实现改了、生成脚本还是旧版"。
 
-未完成：写入本身没落地。`fmtstr_payload(6, ...)` 把地址排到了第 13/14 个参数位，而地址实际
-落在第 9/10 个，所以写不进去。下一步是手写布局（自己算 `arg0 = offset + ceil(len(fmt_text)/8)`，
-按 `arg0..arg0+3` 排地址，用 `%hhn` 逐字节写）。**在修好之前，别把格式串算作自动能力。**
+一个同样重要的细节：**先读输出再谈交互**。改写成功后 `win()` 会直接把 flag 打出来，
+如果一上来就发 `echo PWNED_OK` 探测，flag 输出会先被读走、判定只看 `PWNED_OK/uid=`，
+就会出现"明明打进去了却报没打通"。
+
+实测：`challenges/fmtstr` 由求解器判 `★ ✅ 解题成功! (方法: format_string)`；
+32 位（`bit=32`，4 字节地址槽）的布局同样有单元测试覆盖。
 
 ## 4. 可移植性
 
@@ -107,7 +113,7 @@ python3 pwnsolver.py solve ./vuln -l ./libc.so.6 -d ./ld-linux-x86-64.so.2
 
 ## 6. 还没做的（诚实清单）
 
-1. 格式串写入（见上，最接近完成的一项）；
+1. 格式串的 GOT 覆盖路线（需要先泄露 libc 基址）与 blind fmtstr；
 2. 通用堆利用引擎：目前只有"函数指针劫持"这一条自动路线，tcache/unsorted/House of Orange
    之外仍靠手写；`heap_exploit.py` 里的原语仍未被引擎真正调用；
 3. heap+seccomp 的 FSOP/House of Apple 链；
