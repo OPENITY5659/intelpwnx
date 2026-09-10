@@ -83,7 +83,9 @@ def cmd_router(_args):
 
 def cmd_build(_args):
     script = PROJECT_ROOT / 'scripts' / 'pwn-x86-build'
-    return subprocess.call([str(script)])
+    # 经 bash 调用而不是直接 exec：带 shebang 的脚本一旦被 checkout 成 CRLF，
+    # Linux 会报 "env: bash\r: No such file or directory" 而完全跑不起来。
+    return subprocess.call(['bash', str(script)])
 
 
 def cmd_solve(args, recon_only=False):

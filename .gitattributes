@@ -1,3 +1,30 @@
-*.bat text eol=crlf
+# 统一按 LF 入库：Windows 侧的 core.autocrlf=true 曾把 98 个文件写成 CRLF，
+# 导致 scripts/pwn-x86*（带 shebang 的可执行脚本）在 Linux/WSL 下直接报
+# "env: bash\r: No such file or directory"，Dockerfile 也会因续行带 \r 解析异常。
+* text=auto eol=lf
+
+# 可执行脚本必须是 LF：它们靠 shebang 直接执行
 *.sh text eol=lf
 *.command text eol=lf
+scripts/pwn-x86 text eol=lf
+scripts/pwn-x86-build text eol=lf
+
+# Python 与容器定义同样按 LF 入库
+*.py text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+# 二进制资源不参与行尾转换
+*.png binary
+*.jpg binary
+*.zst binary
+*.tar binary
+*.so binary
+*.deb binary
+
+# Windows 批处理保持 CRLF（cmd.exe 需要）
+*.bat text eol=crlf
