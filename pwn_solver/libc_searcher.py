@@ -1,136 +1,130 @@
 #!/usr/bin/env python3
-"""
-LibcSearcher集成模块
-通过泄露的函数地址自动匹配并下载正确的libc
-"""
+"""本地优先的 libc 解析器（离线可用，绝不联网）。
 
+历史包袱：本模块原名"LibcSearcher 集成"，但实际装上的 libcsearcher 1.1.5 是
+libc.rip 的云 API 客户端（requests.post 到 https://libc.rip/api/find），
+且它没有本模块假设的 .db / .download() 接口 —— 也就是说这条路径从来没真正工作过，
+断网更是彻底不可用。现在改为只依赖 pwn_solver/libc_db.py 的本地符号索引：
+磁盘上有哪些 libc，就能识别哪些 libc，全程零网络。
+
+对外保留旧函数名（search_by_leak / find_by_symbols），返回值统一为 (libc_path, base)。
+"""
 import os
-import sys
+
+from libc_db import (INDEX_SYMBOLS, LibcMatch, abs_path, index_path,  # noqa: F401
+                     add_libc, find_loader_for, load_index, match_leaks)
+
 
 class LibcMatcher:
-    """Libc自动匹配器"""
-    
+    """基于本地符号索引的 libc 匹配器。"""
+
     def __init__(self, verbose=True):
         self.verbose = verbose
-        self._searcher = None
-        
+
     def log(self, msg):
         if self.verbose:
             print(f"  [libc] {msg}", flush=True)
-    
-    def search_by_leak(self, func_name, leaked_addr):
+
+    def available(self):
+        """本地索引里是否有可用条目。"""
+        return bool(load_index()['entries'])
+
+    def search_by_leaks(self, leaks, arch=None):
+        """多符号匹配，返回 LibcMatch 列表（可能为空）。"""
+        if not leaks:
+            return []
+        matches = match_leaks(leaks, arch=arch)
+        if not matches:
+            self.log("本地索引未匹配到 libc（泄露: "
+                     + ', '.join(f'{k}={hex(v)}' for k, v in leaks.items()) + "）")
+            return []
+        if len(matches) == 1:
+            m = matches[0]
+            self.log(f"匹配到 {m.libc_version} ({m.arch}): {m.path}")
+        else:
+            self.log(f"匹配到 {len(matches)} 个候选 libc（页内偏移相同），按匹配符号数排序：")
+            for m in matches[:5]:
+                self.log(f"    {m.libc_version} {m.arch} 匹配 {m.matched}/{m.total} :: {m.path}")
+        return matches
+
+    def search_by_leak(self, func_name, leaked_addr, arch=None):
+        """单符号匹配。返回 (libc_path, base)；未命中给 (None, None)。
+
+        候选不唯一时返回按匹配度排序的第一项，但候选数量会打进日志，
+        避免"悄悄选错 libc"。
         """
-        通过泄露的函数地址搜索匹配的libc
-        返回: (libc_path, base_addr) 或 (None, None)
-        """
-        try:
-            from LibcSearcher import LibcSearcher
-            
-            self.log(f"LibcSearcher: {func_name} @ {hex(leaked_addr)}")
-            obj = LibcSearcher(func_name, leaked_addr)
-            
-            # 获取匹配的libc
-            if hasattr(obj, 'db') and obj.db:
-                libc_path = obj.db
-                base_addr = leaked_addr - obj.dump(func_name)
-                self.log(f"匹配libc: {os.path.basename(libc_path)}")
-                self.log(f"libc base: {hex(base_addr)}")
-                return libc_path, base_addr
-            
-            # 尝试手动下载
-            if hasattr(obj, 'download'):
-                libc_path = obj.download()
-                if libc_path:
-                    base_addr = leaked_addr - obj.dump(func_name)
-                    self.log(f"下载libc: {os.path.basename(libc_path)}")
-                    self.log(f"libc base: {hex(base_addr)}")
-                    return libc_path, base_addr
-            
-            self.log("未找到匹配的libc")
+        matches = self.search_by_leaks({func_name: leaked_addr}, arch=arch)
+        if not matches:
             return None, None
-            
-        except ImportError:
-            self.log("LibcSearcher未安装 (pip install LibcSearcher)")
-            return None, None
-        except Exception as e:
-            self.log(f"LibcSearcher错误: {e}")
-            return None, None
-    
+        best = matches[0]
+        return best.path, best.base
+
     def find_by_symbols(self, symbol_offsets):
+        """用符号偏移表（{符号: 偏移}）匹配，返回 (libc_path, LibcMatch)。
+
+        与"泄露地址"等价：页内偏移与 ASLR 基址无关，这里直接把偏移当低 12 位来源。
         """
-        通过多个符号偏移搜索libc
-        symbol_offsets: {'puts': 0x890, '__libc_start_main': 0x240, ...}
-        返回匹配的libc路径
-        """
-        try:
-            from LibcSearcher import LibcSearcher
-            
-            for sym, offset_low12 in symbol_offsets.items():
-                if not offset_low12:
-                    continue
-                # 尝试用每个符号的最后12位去搜索
-                # LibcSearcher需要实际泄露地址，这里用偏移模拟
-                fake_addr = 0x7f0000000000 | offset_low12
-                try:
-                    obj = LibcSearcher(sym, fake_addr)
-                    if hasattr(obj, 'db') and obj.db:
-                        self.log(f"通过{sym}(0x{offset_low12:03x})匹配: {os.path.basename(obj.db)}")
-                        return obj.db, obj
-                except:
-                    continue
-            
+        leaks = {}
+        for sym, off in (symbol_offsets or {}).items():
+            if sym in INDEX_SYMBOLS and off:
+                leaks[sym] = 0x7f0000000000 | (off & 0xfff)
+        matches = self.search_by_leaks(leaks)
+        if not matches:
             return None, None
-        except Exception as e:
-            self.log(f"搜索失败: {e}")
-            return None, None
-    
+        return matches[0].path, matches[0]
+
     def get_common_libc_db_path(self):
-        """获取常见的libc数据库路径"""
-        paths = [
-            os.path.expanduser('~/.libcsearcher'),
-            os.path.expanduser('~/LibcSearcher'),
-            '/usr/share/libc-database',
-            os.path.join(os.path.dirname(__file__), 'libc_db'),
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                return p
-        return None
+        """本地索引文件位置（保留旧名字，便于排查）。"""
+        p = index_path()
+        return p if os.path.exists(p) else None
+
+    def loader_for(self, libc_path):
+        """给 libc 找配对 loader；找不到返回 None。"""
+        return find_loader_for(libc_path)
+
+    def register(self, libc_path, loader=None):
+        """把现场发现的 libc 附件登记进索引，返回条目。"""
+        return add_libc(libc_path, loader=loader)
+
+    def summarize(self):
+        index = load_index()
+        versions = {}
+        for e in index['entries']:
+            key = f"{e.get('libc_version') or '?'}/{e.get('arch') or '?'}"
+            versions[key] = versions.get(key, 0) + 1
+        return {'versions': sorted(versions.items()), 'total': len(index['entries']),
+                'index': index_path()}
 
 
 def create_libc_resolver_script(leak_func, libc_path=None):
-    """
-    生成内联的libc解析代码（用于exploit模板）
-    不依赖外部LibcSearcher模块
+    """生成写进 exploit 的 libc 解析片段。
+
+    优先使用求解阶段已确定的 libc 绝对路径（离线可复现）；没有时退回本地索引查询，
+    同样不需要网络。生成的代码里不再出现 LibcSearcher。
     """
     if libc_path:
         return f'''
-# 使用指定的libc
+# libc 已在求解阶段确定（本地文件，离线可用）
 libc = ELF("{libc_path}")
 libc.address = leaked - libc.symbols['{leak_func}']
 log.success(f"libc base: {{hex(libc.address)}}")
 '''
-    else:
-        return f'''
-# 尝试用LibcSearcher自动匹配libc
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return f'''
+# 本地符号索引解析（离线，无网络请求）
+import sys as _sys
+_sys.path.insert(0, "{root}")
 try:
-    from LibcSearcher import LibcSearcher
-    obj = LibcSearcher("{leak_func}", leaked)
-    if hasattr(obj, 'dump'):
-        libc_base = leaked - obj.dump("{leak_func}")
-        log.success(f"LibcSearcher: libc base = {{hex(libc_base)}}")
-        # 尝试获取system和/bin/sh
-        system_off = obj.dump("system")
-        binsh_off = obj.dump("str_bin_sh")
-        if system_off and binsh_off:
-            system = libc_base + system_off
-            binsh = libc_base + binsh_off
-            log.info(f"system: {{hex(system)}}, /bin/sh: {{hex(binsh)}}")
-        libc = obj  # 作为偏移查找器使用
+    from libc_db import match_leaks as _match_leaks
+    _matches = _match_leaks({{"{leak_func}": leaked}})
+    if _matches:
+        libc = ELF(_matches[0].path)
+        libc.address = leaked - libc.symbols["{leak_func}"]
+        log.success(f"libc {{_matches[0].libc_version}} base: {{hex(libc.address)}}")
     else:
-        log.error("LibcSearcher failed, need manual libc")
+        log.error("本地索引未匹配到 libc，请用 -l 指定或先跑 pwnsolver.py libcdb build")
         exit(1)
 except ImportError:
-    log.error("pip install LibcSearcher first!")
+    log.error("libc_db 不可用（确认 pwn_solver 目录随脚本一起部署）")
     exit(1)
 '''

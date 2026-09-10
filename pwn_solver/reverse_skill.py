@@ -377,8 +377,11 @@ class ToolProbe:
             try:
                 if spec.get("kind") == "python":
                     code = f"import {spec.get('module')}"
+                    # 用当前解释器探测：AWDP 那类 .venv-linux 约定不把 pwntools 装进 PATH，
+                    # 写死 python3 会把已装好的模块误报成缺失并给出错误的 pip 建议。
+                    interpreter = sys.executable or "python3"
                     r = subprocess.run(
-                        ["python3", "-c", code],
+                        [interpreter, "-c", code],
                         capture_output=True, text=True, timeout=15,
                     )
                     ok = r.returncode == 0

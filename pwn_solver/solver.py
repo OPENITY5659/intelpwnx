@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyzer import BinaryAnalyzer
 from gadget_finder import GadgetFinder
 from interactor import BinaryInteractor
+from utils import exploit_python
 from exploit_templates import (
     Ret2WinExploit,
     Ret2LibcExploit,
@@ -76,26 +77,37 @@ class PwnSolver:
         if self.enable_reverse_skill:
             self._maybe_unpack_upx()
 
-        # Step 0: 自动检测同目录libc / ld
-        # UPX 已解包时仍优先在原始样本目录找 libc/ld
+        # Step 0: 自动检测 libc / ld（离线优先：同目录附件 → 上级目录 → 本地符号索引 → 系统 libc 兜底）
+        self.libc_source = None    # user | sibling | neighbor | index | system
+        self.libc_suspect = False  # 系统 libc 兜底：只能本地自测，打远程必须换靶机 libc
+        self.libc_version = None
         if not self.libc_path:
             try:
-                from badchars import auto_detect_libc
-                detected = auto_detect_libc(self.original_binary_path or self.binary_path)
-                if detected:
-                    self.libc_path = detected
+                from badchars import detect_libc_ex
+                info = detect_libc_ex(self.original_binary_path or self.binary_path)
+                if info.get('path'):
+                    self.libc_path = info['path']
+                    self.libc_source = info.get('source')
+                    self.libc_suspect = bool(info.get('suspect'))
+                    self.libc_version = info.get('version')
+                    if not self.ld_path and info.get('loader'):
+                        self.ld_path = info['loader']
                     if verbose:
-                        print(f"  🔍 自动检测到libc: {os.path.basename(detected)}")
-            except ImportError: pass
-        # 本地求解场景 fallback: 动态链接题目在本地运行时, 系统 libc 就是真实运行时 libc。
-        # 仅当目标确实是本机可执行的动态 ELF 时启用 (远程题目应由用户显式提供 libc)。
-        if not self.libc_path and self._is_locally_runnable_dynamic_elf():
-            for cand in self._system_libc_candidates():
-                if cand and os.path.isfile(cand):
-                    self.libc_path = cand
-                    if verbose:
-                        print(f"  🔍 使用本地系统 libc fallback: {cand}")
-                    break
+                        src = {'sibling': '同目录附件', 'neighbor': '上级目录附件',
+                               'index': '本地符号索引', 'system': '系统 libc 兜底'}.get(
+                                   self.libc_source, self.libc_source)
+                        version = f" [glibc {self.libc_version}]" if self.libc_version else ""
+                        print(f"  🔍 自动检测到libc({src}): "
+                              f"{os.path.basename(self.libc_path)}{version}")
+                        if info.get('note'):
+                            print(f"      {info['note']}")
+            except ImportError:
+                pass
+        if self.libc_path and not self.libc_source:
+            self.libc_source = 'user'
+        if self.libc_suspect and verbose:
+            print("  ⚠ 当前 libc 来自本机系统兜底：本地自测可用，"
+                  "远程利用前请用 -l 换成靶机 libc（否则 system/one_gadget 偏移是错的）")
         if not self.ld_path:
             try:
                 from badchars import auto_detect_ld
@@ -693,6 +705,9 @@ class PwnSolver:
             success = feedback.get('success', False) if isinstance(feedback, dict) else getattr(feedback, 'success', False)
             if success:
                 self.log(f"  [+] 本地测试成功!")
+                note = feedback.get('note') if isinstance(feedback, dict) else None
+                if note:
+                    self.log(note)
             else:
                 err = feedback.get('error_type', 'unknown') if isinstance(feedback, dict) else getattr(feedback, 'error_type', 'unknown')
                 crash = feedback.get('crash_addr') if isinstance(feedback, dict) else getattr(feedback, 'crash_addr', None)
@@ -710,6 +725,11 @@ class PwnSolver:
                     self.log(f"      stderr: {stderr[:200]}")
             # 缓存反馈供自适应循环使用
             self._last_feedback = feedback
+            if not success:
+                leaks = feedback.get('leaks') if isinstance(feedback, dict) else None
+                if leaks and self._resolve_libc_from_leaks(leaks):
+                    # libc 换了 → 让调用方重新生成 exploit（GadgetFinder 已重建）
+                    self._libc_changed = True
             return success
         else:
             result = self.exploit.test_local(timeout=timeout)
@@ -718,6 +738,47 @@ class PwnSolver:
             else:
                 self.log(f"  [-] 本地测试失败")
             return result
+
+    def _resolve_libc_from_leaks(self, leaks):
+        """用泄露地址在本地索引里反查 libc，命中就换掉当前 libc 并重建 gadget。
+
+        只在"当前 libc 不是题目附件、也不是用户 -l 指定"时才覆盖 —— 附件与显式指定永远优先。
+        这是断网环境下识别未知 libc 的唯一途径（不再依赖 libc.rip 之类的云 API）。
+        返回 True 表示 libc 已替换。
+        """
+        if not leaks:
+            return False
+        if self.libc_source in ('user', 'sibling', 'neighbor'):
+            return False
+        try:
+            from badchars import detect_libc_ex
+            from libc_db import arch_of
+        except ImportError:
+            return False
+        target = self.original_binary_path or self.binary_path
+        try:
+            info = detect_libc_ex(target, leaks=leaks, arch=arch_of(target))
+        except Exception as exc:
+            self.log(f"  [libc] 泄露反查异常: {exc}")
+            return False
+        if info.get('source') != 'index' or not info.get('path'):
+            self.log(f"  [libc] 泄露 {', '.join(f'{k}={hex(v)}' for k, v in leaks.items())} "
+                     "未在本地索引匹配到（可扩充 libcs/ 后重跑 libcdb build）")
+            return False
+        new_path = os.path.abspath(info['path'])
+        if self.libc_path and os.path.abspath(self.libc_path) == new_path:
+            return False
+        old = os.path.basename(self.libc_path) if self.libc_path else '无'
+        self.libc_path = new_path
+        self.libc_source = 'index'
+        self.libc_suspect = False
+        self.libc_version = info.get('version')
+        if info.get('loader'):
+            self.ld_path = info['loader']
+        self.gadget_finder = GadgetFinder(self.binary_path, self.libc_path, verbose=self.verbose)
+        self.log(f"  [libc] 由泄露反查: {old} → {os.path.basename(new_path)}"
+                 f" (glibc {self.libc_version})，gadget 已按新 libc 重建")
+        return True
 
     def solve(self, use_strategy=True):
         """主入口 — 完整决策链:
@@ -728,15 +789,17 @@ class PwnSolver:
         self.log("=" * 65)
 
         try:
-            # ====== Step 0: 自动检测libc ======
-            if not self.libc_path:
-                try:
-                    from badchars import auto_detect_libc
-                    detected = auto_detect_libc(self.binary_path)
-                    if detected:
-                        self.libc_path = detected
-                        self.log(f"\n 🔍 自动检测到libc: {os.path.basename(detected)}")
-                except ImportError: pass
+            # ====== Step 0: libc/ld 已在 __init__ 里定好（离线优先），这里只做提示 ======
+            if self.libc_path:
+                origin = {'user': '用户指定 -l', 'sibling': '同目录附件',
+                          'neighbor': '上级目录附件', 'index': '本地符号索引',
+                          'system': '系统 libc 兜底'}.get(self.libc_source, self.libc_source)
+                suffix = f" [glibc {self.libc_version}]" if self.libc_version else ""
+                self.log(f"\n 🔍 libc: {os.path.basename(self.libc_path)}{suffix} ({origin})")
+                if self.libc_suspect:
+                    self.log("    ⚠ 系统兜底 libc 只保证本地自测；远程利用前用 -l 换靶机 libc")
+            else:
+                self.log("\n 🔍 libc: 未找到（无附件、索引无匹配）→ 可跑 pwnsolver.py libcdb build 扩充索引")
 
             # ====== Step 1: 基础分析 ======
             analysis = self.analyze()
@@ -1040,8 +1103,42 @@ class PwnSolver:
         if seccomp: self.log(f"  seccomp: YES → 需要ORW (open/read/write)")
         if protections.get('pie'): self.log(f"  PIE: YES → 需要基址泄露")
         if protections.get('canary'): self.log(f"  Canary: YES → 需要canary泄露")
-        if not self.libc_path: self.log(f"  libc: 未提供 → pip install LibcSearcher")
-        self.log(f"\n  建议: {'gcc -static' if not gadgets.get('pop_rdi_in_binary') else '提供libc: -l libc.so.6'}")
+        # libc 状态：不再提"pip install LibcSearcher"（离线环境下那是死路）
+        if not self.libc_path:
+            self.log("  libc: 未找到 → 离线做法：pwnsolver.py libcdb build 扩索引，"
+                     "或用 -l 显式指定靶机 libc")
+        elif self.libc_suspect:
+            self.log("  libc: 来自本机系统兜底 → 本地自测可以，远程会算错偏移，"
+                     "请用 -l 换成靶机 libc")
+        elif self.libc_version:
+            self.log(f"  libc: glibc {self.libc_version}（{self.libc_source}）")
+        self.log(f"\n  下一步: {self._next_step_advice(vuln_type[0], analysis, gadgets, seccomp)}")
+
+    def _next_step_advice(self, vuln, analysis, gadgets, seccomp=False):
+        """按题型给可执行的下一步，替代原先写死的 'gcc -static'。"""
+        advice = {
+            'format_string': "格式化字符串：先确认 %N$p 的偏移与写入目标（GOT / 全局变量 / 返回地址），"
+                             "再构造 %n/%hhn 分块写；本轮的探测脚本已在 exploits/ 里，可直接手工改",
+            'heap': "堆题：确认菜单选项与 free/calloc 计数、指针数组地址、libc 版本，"
+                    "按 UAF/重复free → unsorted bin 泄露 → tcache dup → 目标(__free_hook / "
+                    "tcache 结构 / FSOP) 顺序手写；结构化诊断见 pwnsolver_evidence/*.heap.md",
+            'go_stack': "Go 栈溢出：确认 pattern_matches 里有 go_stack_overflow 及其 frame 参数，"
+                        "GoStackExploit 需要该参数才能算帧偏移",
+            'orange_cat': "House of Orange：确认给了配对 libc（-l libc-2.23.so）与 loader（-d ld-2.23.so），"
+                          "并检查 show() 泄露路径是否被走到",
+            'array_oob': "数组越界读写：确认有符号索引边界与可利用的负索引写目标（如 puts@got）",
+            'yes_or_no': "yes_or_no 风格：确认抬栈次数与寄存器清除 gadget 组合，必要时手工爆破",
+            'ret2syscall': "ret2syscall：确认 binary 内 syscall/pop rax/rdi 链完整，"
+                           "或改用 libc 内的 execve 链",
+            'shellcode': "shellcode：确认 NX 关闭且注入段可执行（栈/堆权限）",
+            'stack_pivot': "栈迁移：确认 leave;ret 与目标栈地址可控（通常需要泄露）",
+        }.get(vuln)
+        if not advice:
+            advice = ("栈类利用：核对 offset / canary / 栈对齐；远程务必确认 libc 版本配对；"
+                      "先跑 pwnsolver.py recon <bin> --deep-r2 看证据")
+        if seccomp:
+            advice += "；有 seccomp → 目标链改成 ORW(open/read/write) 或 FSOP"
+        return advice
 
     def _check_seccomp(self, gadgets):
         """检测是否有seccomp限制"""
@@ -1081,7 +1178,7 @@ class PwnSolver:
             try:
                 self.log("[*] 测试ORW exploit...")
                 result = subprocess.run(
-                    ['python3', tmp_path],
+                    [exploit_python(), tmp_path],
                     capture_output=True, text=True, timeout=15,
                     cwd=os.path.dirname(os.path.abspath(self.binary_path)) or '.'
                 )

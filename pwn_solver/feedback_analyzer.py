@@ -47,6 +47,7 @@ class FeedbackResult:
     stdout_snippet: str = ""               # 最后 500 chars
     stderr_snippet: str = ""               # 最后 500 chars
     leak_candidates: List[int] = field(default_factory=list)  # 可能的泄露地址
+    leaks: Dict[str, int] = field(default_factory=dict)      # 结构化泄露 {符号: 地址}
     recv_before_crash: str = ""            # crash前收到的数据
     suggestions: List[AdjustmentSuggestion] = field(default_factory=list)
     raw_output: str = ""                   # 完整原始输出
@@ -122,6 +123,10 @@ class FeedbackAnalyzer:
     # 泄露地址识别 (64-bit libc/heap addresses)
     LEAK_PATTERN = re.compile(r'(?<![0-9a-f])(7f[0-9a-f]{10,12})(?![0-9a-f])', re.I)
     HEAP_LEAK_PATTERN = re.compile(r'(?<![0-9a-f])((?:55|56)[0-9a-f]{10,12})(?![0-9a-f])', re.I)
+
+    # 结构化泄露行：生成的 exploit 打印 `[leak] puts=0x7f...`，
+    # 有了符号名才能拿去本地索引反查 libc（断网识别的关键输入）。
+    LEAK_LINE_PATTERN = re.compile(r'\[leak\]\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(0x[0-9a-fA-F]+)')
     
     # 成功模式 — 只匹配明确的 shell 获取标志
     SUCCESS_PATTERNS = [
@@ -133,6 +138,12 @@ class FeedbackAnalyzer:
         re.compile(r'flag\{[^}]+\}', re.I),
         re.compile(r'ctfshow\{[^}]+\}', re.I),
         re.compile(r'(?:^|\n)\$\s', re.I),     # shell 提示符在行首
+    ]
+    # 其中"确实是 flag"的一类：只有它们可以直接判弱成功；
+    # shell 提示符要走交互式复验（1d），不能凭一个 $ 就宣布成功。
+    WEAK_FLAG_PATTERNS = [
+        re.compile(r'flag\{[^}]+\}', re.I),
+        re.compile(r'ctfshow\{[^}]+\}', re.I),
     ]
     
     def __init__(self, verbose=True):
@@ -150,6 +161,14 @@ class FeedbackAnalyzer:
         stdout_t = stdout[-MAX_LEN:] if len(stdout) > MAX_LEN else stdout
         stderr_t = stderr[-MAX_LEN:] if len(stderr) > MAX_LEN else stderr
         combined = f"{stdout_t}\n{stderr_t}"
+
+        # 0. 结构化泄露行（符号名 → 地址），供本地 libc 索引反查使用
+        leaks = {}
+        for m in self.LEAK_LINE_PATTERN.finditer(combined):
+            try:
+                leaks[m.group(1)] = int(m.group(2), 16)
+            except ValueError:
+                continue
         
         # 1. 成功前提: exit_code 必须干净 + 不能有崩溃证据
         clean_exit = (exit_code is None or exit_code == 0)
@@ -169,10 +188,11 @@ class FeedbackAnalyzer:
                         raw_output=raw_output or combined,
                     )
                     self.log(f"✓ 检测到成功标志")
+                    result.leaks = leaks
                     return result
             
-            # 1b. 弱成功标志 (flag/shell提示符)
-            for pat in self.WEAK_SUCCESS_PATTERNS:
+            # 1b. 弱成功标志（只有真 flag 才算；shell 提示符走 1d 复验）
+            for pat in self.WEAK_FLAG_PATTERNS:
                 if pat.search(combined):
                     result = FeedbackResult(
                         success=True, error_type=ErrorType.SUCCESS,
@@ -182,6 +202,7 @@ class FeedbackAnalyzer:
                         raw_output=raw_output or combined,
                     )
                     self.log(f"✓ 检测到弱成功标志 (flag/shell)")
+                    result.leaks = leaks
                     return result
         
         # 1c. 非零退出码快速失败
@@ -201,6 +222,23 @@ class FeedbackAnalyzer:
                 raw_output=raw_output or combined,
             )
         
+        # 1d. 输出里有 shell 迹象但没触发成功标志 —— 这是最具体的信号，
+        #     优先于下面的通用错误分类（否则会被当成"未知错误"而空转）。
+        #     注意不能用 'pwn' 之类的宽泛子串：它会被 cache/ciscn_dl/pwn2024
+        #     这类自身路径命中，造成满屏假阳。
+        if any(hint in combined for hint in ('$ ', '# ', '>>> ')):
+            result.error_type = ErrorType.WRONG_OUTPUT
+            result.suggestions = [
+                AdjustmentSuggestion(
+                    kind='verify_shell',
+                    description='输出里有 shell 提示符但未触发成功标志，改用交互式复验',
+                    confidence=0.6,
+                ),
+            ]
+            self.log("⚠ 疑似获得交互但未触发成功标志")
+            result.leaks = leaks
+            return result
+
         # 2a: 超时 (先检查 timeout flag)
         if timeout:
             result.error_type = ErrorType.TIMEOUT
@@ -382,13 +420,14 @@ class FeedbackAnalyzer:
                     ),
                 ]
                 self.log(f"✗ 子进程异常: {sig_name}")
-            elif any(c in combined for c in ['$ ', '# ', '>>> ', 'pwn']):
+            elif any(c in combined for c in ['$ ', '# ', '>>> ']):
+                # shell 提示符的情形已在 1d 提前返回；这里只可能是极端拼凑的文本
                 result.error_type = ErrorType.WRONG_OUTPUT
                 result.suggestions = [
                     AdjustmentSuggestion(
-                        kind='retry_same',
-                        description='可能获得了shell但未触发成功检测，重试',
-                        confidence=0.4,
+                        kind='switch_method',
+                        description='交互迹象不明确，切换利用方法',
+                        confidence=0.3,
                     ),
                 ]
                 self.log(f"⚠ 疑似获得交互但未触发成功标志")
@@ -410,6 +449,7 @@ class FeedbackAnalyzer:
                     )
                 self.log(f"✗ 未知错误 (exit_code={exit_code})")
         
+        result.leaks = leaks
         return result
     
     def _diagnose_segfault(self, crash_addr, combined):

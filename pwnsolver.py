@@ -141,6 +141,61 @@ def cmd_patterns(_args):
     return 0
 
 
+def cmd_libcdb(args):
+    """离线 libc 符号索引：构建、查看、按泄露匹配（全程不联网）。"""
+    sys.path.insert(0, str(PROJECT_ROOT / 'pwn_solver'))
+    import libc_db
+
+    action = args.action
+    if action == 'build':
+        index, stats = libc_db.build_index(extra_dirs=args.dir, force=args.force,
+                                          verbose=args.verbose)
+        print(f"[libcdb] 条目 {len(index['entries'])}（新增 {stats['added']} "
+              f"更新 {stats['updated']} 未变 {stats['kept']} 跳过 {stats['skipped']}）")
+        print(f"[libcdb] 写入 {libc_db.index_path()}")
+        return 0
+
+    if action == 'list':
+        info = libc_db.summarize()
+        print(f"[libcdb] {libc_db.index_path()}")
+        print(f"[libcdb] 条目 {info['entries']}，生成于 {info['generated_at']}")
+        for key, num in info['by_version'].items():
+            print(f"  {key}: {num}")
+        if args.verbose:
+            for entry in libc_db.load_index()['entries']:
+                print(f"  {entry['path']}  ld={entry.get('loader')}")
+        if not info['entries']:
+            print('  （索引为空 —— 跑 pwnsolver.py libcdb build，或先 fetchlibc 预抓常用版本）')
+        return 0
+
+    if action == 'match':
+        leaks = {}
+        for item in args.leak:
+            sym, _, addr = item.partition('=')
+            if not addr:
+                print(f'[-] --leak 需要写成 符号=地址 的形式，收到: {item}', file=sys.stderr)
+                return 2
+            leaks[sym.strip()] = int(addr, 16)
+        if not leaks:
+            print('[-] match 至少需要一个 --leak 符号=地址', file=sys.stderr)
+            return 2
+        matches = libc_db.match_leaks(leaks, arch=args.arch)
+        if not matches:
+            print('[libcdb] 未匹配到候选 —— 可先 fetchlibc 预抓更多版本，或手工 -l 指定')
+            return 1
+        for m in matches:
+            base = hex(m.base) if m.base else '?'
+            print(f"[libcdb] glibc {m.libc_version} {m.arch} base={base} "
+                  f"匹配 {m.matched}/{m.total}")
+            print(f"         {m.path}")
+            if m.entry.get('loader'):
+                print(f"         loader: {m.entry['loader']}")
+        return 0
+
+    print(f'[-] 未知 action: {action}', file=sys.stderr)
+    return 2
+
+
 def main():
     parser = argparse.ArgumentParser(description='PwnSolver unified entrypoint')
     sub = parser.add_subparsers(dest='command')
@@ -189,6 +244,22 @@ def main():
     sub.add_parser('router', help='show runtime routing decision')
     sub.add_parser('build', help='build x86_64 Linux sandbox image')
     sub.add_parser('patterns', help='list generalized exploitation patterns')
+
+    p_libcdb = sub.add_parser('libcdb', help='离线 libc 符号索引（构建/查看/匹配，不联网）')
+    p_libcdb.add_argument('action', nargs='?', default='list',
+                          choices=['build', 'list', 'match'],
+                          help='build=扫描本地 libc 建索引, list=查看概况, match=用泄露地址匹配')
+    p_libcdb.add_argument('--force', action='store_true', help='build 时全量重建')
+    p_libcdb.add_argument('--dir', action='append', default=[], help='额外扫描目录，可重复')
+    p_libcdb.add_argument('--leak', action='append', default=[],
+                          help='match 用：符号=地址，如 --leak puts=0x7f1234567890')
+    p_libcdb.add_argument('--arch', default=None, help='match 时限定架构 amd64/i386')
+    p_libcdb.add_argument('--verbose', action='store_true')
+    p_fetch = sub.add_parser('fetchlibc', help='预抓常用 libc（唯一需要联网的步骤）')
+    p_fetch.add_argument('--arch', action='append', choices=['amd64', 'i386'])
+    p_fetch.add_argument('--list', action='store_true')
+    p_fetch.add_argument('--no-network', action='store_true')
+    p_fetch.add_argument('--force', action='store_true')
 
     args = parser.parse_args()
     if args.command in (None, 'gui'):
@@ -245,6 +316,19 @@ def main():
         return cmd_build(args)
     if args.command == 'patterns':
         return cmd_patterns(args)
+    if args.command == 'libcdb':
+        return cmd_libcdb(args)
+    if args.command == 'fetchlibc':
+        cmd = [sys.executable, str(ROOT / 'scripts' / 'fetch_libc_set.py')]
+        for arch in (args.arch or []):
+            cmd += ['--arch', arch]
+        if args.list:
+            cmd.append('--list')
+        if args.no_network:
+            cmd.append('--no-network')
+        if args.force:
+            cmd.append('--force')
+        return subprocess.call(cmd)
     if args.command == 'solve':
         return cmd_solve(args)
     if args.command == 'recon':

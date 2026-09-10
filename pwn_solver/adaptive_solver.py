@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from feedback_analyzer import (
     FeedbackAnalyzer, FeedbackResult, ErrorType, AdjustmentSuggestion
 )
+from utils import exploit_python
 
 
 @dataclass
@@ -164,7 +165,10 @@ class AdaptiveSolver:
                 # Step 4: 应用调整
                 applied = self._apply_adjustment(adjustment, base_params, method, analysis)
                 if not applied:
-                    self.log("  ⚠ 调整无法应用，切换方法")
+                    if adjustment.kind == 'switch_method':
+                        self.log("  按诊断建议切换方法")
+                    else:
+                        self.log("  ⚠ 调整无法应用，切换方法")
                     break
         
         # 所有方法耗尽
@@ -337,6 +341,16 @@ class AdaptiveSolver:
             result = self._execute_exploit(code)
             record.feedback = result
             record.success = result.success
+
+            # 非交互执行拿不到 stdin，遇到"疑似拿到 shell 但标志没过"时补一次交互式复验，
+            # 否则这类题会被误判为失败（典型：Go/Rust 预读、非 tty 的 shell 提示符）。
+            if not result.success and self._looks_like_shell(result):
+                verified = self._interactive_verify(method)
+                if verified is not None:
+                    result = verified
+                    record.feedback = result
+                    record.success = result.success
+
             record.duration = time.time() - start
             
             if result.success:
@@ -354,6 +368,43 @@ class AdaptiveSolver:
             self.log(f"  ❌ 异常: {e}")
         
         return record
+
+    SHELL_HINTS = ('$ ', '# ', '>>> ', 'shell', 'PWNED', 'uid=')
+
+    def _looks_like_shell(self, feedback: FeedbackResult) -> bool:
+        """输出里出现 shell 迹象但成功标志没触发 —— 值得交互式复验一次。"""
+        if feedback.error_type != ErrorType.WRONG_OUTPUT:
+            return False
+        text = (feedback.raw_output or '') + (feedback.stdout_snippet or '')
+        return any(hint in text for hint in self.SHELL_HINTS)
+
+    def _interactive_verify(self, method: dict):
+        """用带 stdin 的方式复跑当前 exploit，验证是否真的拿到了 shell。
+
+        返回 FeedbackResult（成功/失败）或 None（无法复验，保持原判）。
+        """
+        exploit = getattr(self.solver, 'exploit', None)
+        if exploit is None or not hasattr(exploit, 'test_with_feedback'):
+            return None
+        if not getattr(exploit, 'code', ''):
+            return None
+        try:
+            self.log("    ↳ 疑似已获得交互，改用带 stdin 的方式复验…")
+            raw = exploit.test_with_feedback(timeout=max(self.config.retry_timeout, 10))
+        except Exception as exc:
+            self.log(f"    ↳ 交互式复验异常: {exc}")
+            return None
+        if raw.get('success'):
+            self.log("    ✓ 交互式复验确认拿到 shell（原先是非交互执行导致的误判）")
+            return FeedbackResult(
+                success=True, error_type=ErrorType.SUCCESS,
+                exit_code=raw.get('exit_code'),
+                stdout_snippet=(raw.get('stdout') or '')[-500:],
+                stderr_snippet=(raw.get('stderr') or '')[-500:],
+                raw_output=(raw.get('stdout') or '') + (raw.get('stderr') or ''),
+            )
+        self.log("    ↳ 复验未通过（确实没有 shell），继续下一种调整")
+        return None
     
     def _execute_exploit(self, code: str) -> FeedbackResult:
         """执行 exploit 代码并返回结构化反馈"""
@@ -370,7 +421,7 @@ class AdaptiveSolver:
             )) or '.'
             
             result = subprocess.run(
-                ['python3', tmp_path],
+                [exploit_python(), tmp_path],
                 capture_output=True, text=True,
                 timeout=self.config.retry_timeout,
                 cwd=cwd,
@@ -427,6 +478,34 @@ class AdaptiveSolver:
             return self._handle_bad_recv(feedback, params, method)
         elif et == ErrorType.EOF_ERROR:
             return self._handle_eof(feedback, params, method)
+        elif et == ErrorType.WRONG_OUTPUT:
+            # 有输出但没拿到 shell：栈类继续扫 offset，其余切方法
+            if method['name'] in ('rop', 'ret2libc', 'ret2win', 'one_gadget', 'ret2syscall'):
+                return AdjustmentSuggestion(
+                    kind='offset_shift',
+                    description='有输出但未拿到 shell — 继续微调偏移',
+                    params={'direction': 'increase', 'min_delta': 8},
+                    confidence=0.35,
+                )
+            return AdjustmentSuggestion(
+                kind='switch_method',
+                description='有输出但未拿到 shell（协议/交互与假设不符）',
+                confidence=0.4,
+            )
+        elif et == ErrorType.UNKNOWN:
+            # 无结构化信息也要给出一个明确动作，避免 "err=?" 的空转
+            if method['name'] in ('rop', 'ret2libc', 'ret2win', 'one_gadget', 'ret2syscall'):
+                return AdjustmentSuggestion(
+                    kind='offset_shift',
+                    description='无结构化反馈 — 继续扫偏移（栈类常见成因）',
+                    params={'direction': 'increase', 'min_delta': 8},
+                    confidence=0.3,
+                )
+            return AdjustmentSuggestion(
+                kind='switch_method',
+                description='无结构化反馈 — 切换方法',
+                confidence=0.3,
+            )
         
         return None
     
@@ -448,10 +527,18 @@ class AdaptiveSolver:
             return False
         elif sug.kind == 'switch_method':
             return True
-        elif sug.kind == 'retry_same':
+        elif sug.kind == 'verify_shell':
+            # 由 _attempt 里的交互式复验处理；这里允许通过，避免落进"无法生成建议"的死角
             return True
+        elif sug.kind in ('fix_protocol', 'add_leak'):
+            # 需要人工介入的调整：接受建议，但应用时如实告知并切换方法，
+            # 不再像以前那样被 _can_apply 直接拒掉、导致方法只试一次就结束。
+            return True
+        elif sug.kind == 'retry_same':
+            # 相同参数重试只在第一次有意义：第二次就是无新信息的空转
+            return params.get('_retry_same_count', 0) < 1
         return False
-    
+
     def _apply_adjustment(self, sug: AdjustmentSuggestion, params: dict,
                           method: dict, analysis: dict) -> bool:
         """应用调整建议到参数"""
@@ -471,7 +558,7 @@ class AdaptiveSolver:
             elif direction == 'retry':
                 self.log(f"    ↳ 保持offset={hex(params['offset'])}重试")
             return True
-        
+
         elif sug.kind == 'switch_gadget':
             if method['name'] == 'one_gadget':
                 params['one_gadget_idx'] += 1
@@ -483,11 +570,21 @@ class AdaptiveSolver:
                             f"{og_list[idx]['offset']}")
                     return True
             return False
-        
+
         elif sug.kind == 'retry_same':
-            self.log(f"    ↳ 重试相同参数")
+            params['_retry_same_count'] = params.get('_retry_same_count', 0) + 1
+            self.log("    ↳ 重试相同参数（仅本次；再次出现同样问题将切换方法）")
             return True
-        
+
+        elif sug.kind == 'verify_shell':
+            # 复验已在 _attempt 里做过：走到这里说明复验也没确认 shell
+            self.log("    ↳ 交互式复验未确认 shell")
+            return False
+
+        elif sug.kind in ('fix_protocol', 'add_leak'):
+            self.log(f"    ↳ {sug.kind} 需人工介入（{sug.description}），先切换方法")
+            return False
+
         return False
     
     # ====== 错误处理器 ======

@@ -82,3 +82,32 @@ def check_tools():
         results[name] = rc == 0
     
     return results
+
+
+_EXPLOIT_PYTHON = None
+
+
+def exploit_python():
+    """跑生成的 exploit 时使用的解释器。
+
+    历史实现各处写死 'python3'，这在 PATH 里没有 pwntools 的环境会直接 ImportError
+    （AWDP 的 .venv-linux 约定就是不把 pwntools 装进 PATH）。优先用当前解释器，
+    确认它能 import pwn；不行再退回 PATH 上的 python3。
+    """
+    global _EXPLOIT_PYTHON
+    if _EXPLOIT_PYTHON:
+        return _EXPLOIT_PYTHON
+    candidates = []
+    if sys.executable:
+        candidates.append(sys.executable)
+    candidates.append('python3')
+    for exe in candidates:
+        try:
+            proc = subprocess.run([exe, '-c', 'import pwn'], capture_output=True, timeout=30)
+            if proc.returncode == 0:
+                _EXPLOIT_PYTHON = exe
+                return exe
+        except Exception:
+            continue
+    _EXPLOIT_PYTHON = 'python3'
+    return _EXPLOIT_PYTHON
