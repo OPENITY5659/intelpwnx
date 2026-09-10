@@ -35,18 +35,35 @@ CRASH_EVIDENCE = re.compile(
 # 探测 shell 用的命令：先证身份，再顺手取 flag（在线赛题常见位置）
 PROBE_COMMAND = 'echo PWNED_OK; id; cat flag* /flag* 2>/dev/null'
 
+# 回显陷阱：有些目标会把输入原样打回来，于是 "echo PWNED_OK; id" 跟着输入一起出现，
+# 标记检查命中的其实是**我们自己命令的回显**（实测 blind_fmt_got/blind 就是这么被
+# 误判成"Shell obtained"的）。判定前先把这类回显行剔除。
+#
+# 注意不要加 \b：真实回显里命令常被前面的垃圾字节粘住（例如 "`techo PWNED_OK"），
+# 词边界会让它匹配不上。真 shell 的输出行是单独的 PWNED_OK，不会被这条误删。
+ECHO_OF_PROBE = re.compile(r'(?i)echo\s+PWNED_OK')
+
+
+def strip_probe_echo(text: str) -> str:
+    """剔除"我们的探测命令被目标回显"的行，避免把自己的输入当成 shell 输出。"""
+    kept = [line for line in (text or '').splitlines()
+            if not ECHO_OF_PROBE.search(line)]
+    return '\n'.join(kept)
+
 
 def classify_text(stdout: str, stderr: str, exit_code=None):
     """返回 (verdict, evidence)：verdict ∈ {'success','weak','fail'}。"""
     combined = f'{stdout or ""}\n{stderr or ""}'
     crashed = bool(CRASH_EVIDENCE.search(combined))
     clean = exit_code is None or exit_code == 0
+    # 先剔掉"探测命令被回显"的行，否则回显会把自己的输入当成 shell 输出
+    cleaned = strip_probe_echo(combined)
     if clean and not crashed:
         for pat in SUCCESS_PATTERNS:
-            if pat.search(combined):
+            if pat.search(cleaned):
                 return 'success', pat.pattern
         for pat in WEAK_SUCCESS_PATTERNS:
-            if pat.search(combined):
+            if pat.search(cleaned):
                 return 'weak', pat.pattern
     if crashed or (exit_code not in (None, 0)):
         return 'fail', f'crash_or_exit={exit_code}'
@@ -105,6 +122,9 @@ def shell_probe_code(indent: str = '    ', arch: str = 'amd64',
 
     send_with_payload=True 时提示调用方把探测命令和最后的 payload 放在同一次
     send 里 —— Go/Rust 的 bufio 预读会把之后写的字节吞掉，必须这么发。
+
+    判定里带"回显剔除"：目标若把输入原样打回来，`echo PWNED_OK; id` 会跟着输入出现，
+    不能把它当成 shell 输出（盲打类题目实测会被这条误判成"Shell obtained"）。
     """
     pad = ' ' * len(indent)
     leak_lines = ''
@@ -113,7 +133,8 @@ def shell_probe_code(indent: str = '    ', arch: str = 'amd64',
                        f"{indent}    log.info('[leak] {sym}=%#x', leak)\n")
     lines = [
         f"{indent}def verify_shell(p, timeout=3.0):",
-        f"{indent}    \"\"\"探测是否真的拿到 shell（PWNED_OK / uid= / flag）。\"\"\"",
+        f"{indent}    \"\"\"探测是否真的拿到 shell（PWNED_OK / uid= / flag；剔除命令回显）。\"\"\"",
+        f"{indent}    import re as _re",
         f"{indent}    import time as _t",
         f"{indent}    try:",
         f"{indent}        p.sendline(b'echo PWNED_OK; id; cat flag* /flag* 2>/dev/null')",
@@ -128,12 +149,16 @@ def shell_probe_code(indent: str = '    ', arch: str = 'amd64',
         f"{indent}            chunk = b''",
         f"{indent}        if chunk:",
         f"{indent}            out += chunk",
-        f"{indent}            if b'PWNED_OK' in out or b'uid=' in out:",
+        f"{indent}            text = out.decode(errors='ignore')",
+        f"{indent}            if b'uid=' in out or _re.search(r'(?im)^\\s*PWNED_OK\\s*$',",
+        f"{indent}                                             _re.sub(r'(?i).*echo PWNED_OK.*', '', text)):",
         f"{indent}                break",
         f"{indent}        if not p.connected():",
         f"{indent}            break",
         f"{indent}    text = out.decode(errors='ignore')",
-        f"{indent}    ok = ('PWNED_OK' in text) or ('uid=' in text)",
+        f"{indent}    # 回显剔除：去掉「我们的命令被原样打回来」的那些行后再看标记",
+        f"{indent}    cleaned = _re.sub(r'(?i).*echo PWNED_OK.*', '', text)",
+        f"{indent}    ok = ('uid=' in text) or bool(_re.search(r'(?im)^\\s*PWNED_OK\\s*$', cleaned))",
         f"{indent}    if ok:",
         f"{indent}        log.success('shell verified')",
         f"{indent}        print(text)",

@@ -168,3 +168,22 @@ def test_next_step_advice_is_strategy_specific():
     assert '%n' in fmt
     with_seccomp = PwnSolver._next_step_advice(object(), 'heap', {}, {}, seccomp=True)
     assert 'ORW' in with_seccomp or 'FSOP' in with_seccomp
+
+
+def test_echoed_probe_command_is_not_counted_as_shell():
+    """回显陷阱：目标把输入打回来时，`echo PWNED_OK; id` 会跟着出现。
+
+    实测 blind_fmt_got/blind 就是被这条误判成"Shell obtained"（基线里那条 ✅ 是假阳）：
+    输出里只有我们自己的输入被回显，没有任何 uid=。剔除回显后必须判失败。
+    """
+    echoed = ('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`techo PWNED_OK; id' + chr(10)
+              + 'AAAAAAAAAAAAAAAAAAAAAA`t' + chr(10))
+    verdict, why = verify.classify_text(echoed, '', 0)
+    assert verdict == 'fail', f'回显不该算成功（{verdict}/{why}）'
+    # 真 shell 的输出（PWNED_OK 单独成行 + uid=）仍要判成功
+    real = 'PWNED_OK' + chr(10) + 'uid=1000(user) gid=1000(user)' + chr(10)
+    assert verify.classify_text(real, '', 0)[0] == 'success'
+    # 生成的探测片段里也要带这条防护
+    code = verify.shell_probe_code(indent='')
+    assert 'echo PWNED_OK' in code and 'cleaned' in code
+    compile(code, '<probe>', 'exec')

@@ -164,6 +164,8 @@ def test_no_cloud_libc_client_left_in_sources():
                 continue
             path = os.path.join(cur, name)
             rel = os.path.relpath(path, ROOT)
+            if rel.replace(os.sep, '/').startswith('pwn_solver/vendor/'):
+                continue   # vendored 目录就是"本地实现"本身，不在护栏范围内
             with open(path, encoding='utf-8', errors='ignore') as f:
                 text = f.read()
             try:
@@ -184,7 +186,8 @@ def test_no_cloud_libc_client_left_in_sources():
                         if alias.name.split('.')[0] in ('LibcSearcher', 'libcsearcher'):
                             offenders.append(f'{rel}: import {alias.name}')
                 elif isinstance(node, ast.ImportFrom):
-                    if (node.module or '').split('.')[0] in ('LibcSearcher', 'libcsearcher'):
+                    # level>0 是包内相对导入（例如本地实现自己的 __init__），不算云端依赖
+                    if getattr(node, 'level', 0) == 0 and                             (node.module or '').split('.')[0] in ('LibcSearcher', 'libcsearcher'):
                         offenders.append(f'{rel}: from {node.module} import')
                 elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                     if id(node) in docstrings:

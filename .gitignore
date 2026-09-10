@@ -65,3 +65,5 @@ pwnsolver_evidence/
 challenges/ret2win_prompt
 challenges/two_stage
 challenges/loop_menu
+# 生成的 LibcSearcher 本地 db（用 scripts/build_libcsearcher_db.py 一条命令重建）
+pwn_solver/vendor/LibcSearcher/db/
