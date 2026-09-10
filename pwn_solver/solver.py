@@ -20,6 +20,23 @@ from analyzer import BinaryAnalyzer
 from gadget_finder import GadgetFinder
 from interactor import BinaryInteractor
 from utils import exploit_python
+
+
+def _remote_env(remote, base_env=None):
+    """把 remote=(host, port) 注入成生成脚本能识别的环境变量。
+
+    模板读的是 PWN_HOST / PWN_PORT（见 exploit_templates.launch_code），而历史上这里
+    只设了 PWN_REMOTE_HOST / PWN_REMOTE_PORT —— 名字对不上，所以 -r 一直没有真正生效
+    （打完还是连本地）。现在两套名字都设，兼容旧脚本。
+    """
+    env = dict(base_env or os.environ)
+    if remote:
+        host, port = str(remote[0]), str(remote[1])
+        env['PWN_HOST'] = host
+        env['PWN_PORT'] = port
+        env['PWN_REMOTE_HOST'] = host
+        env['PWN_REMOTE_PORT'] = port
+    return env
 from exploit_templates import (
     Ret2WinExploit,
     Ret2LibcExploit,
@@ -739,16 +756,18 @@ class PwnSolver:
                 self.log(f"  [-] 本地测试失败")
             return result
 
-    def _resolve_libc_from_leaks(self, leaks):
+    def _resolve_libc_from_leaks(self, leaks, force=False):
         """用泄露地址在本地索引里反查 libc，命中就换掉当前 libc 并重建 gadget。
 
-        只在"当前 libc 不是题目附件、也不是用户 -l 指定"时才覆盖 —— 附件与显式指定永远优先。
-        这是断网环境下识别未知 libc 的唯一途径（不再依赖 libc.rip 之类的云 API）。
+        默认只在"当前 libc 不是题目附件、也不是用户 -l 指定"时才覆盖 —— 附件与显式指定优先。
+        但 **打远程时必须 force=True**：附件/系统兜底都可能与靶机不是同一个 build
+        （同版本不同 build 偏移能差几十 KB），而远程泄露才是真靶机的证据。
+        这是断网环境下唯一能自我纠正的手段（不再依赖 libc.rip 之类的云 API）。
         返回 True 表示 libc 已替换。
         """
         if not leaks:
             return False
-        if self.libc_source in ('user', 'sibling', 'neighbor'):
+        if not force and self.libc_source in ('user', 'sibling', 'neighbor'):
             return False
         try:
             from badchars import detect_libc_ex
@@ -769,6 +788,9 @@ class PwnSolver:
         if self.libc_path and os.path.abspath(self.libc_path) == new_path:
             return False
         old = os.path.basename(self.libc_path) if self.libc_path else '无'
+        if force and self.libc_source in ('user', 'sibling', 'neighbor', 'system'):
+            self.log(f"  [libc] ⚠ 远程泄露显示靶机是 {info.get('version') or '?'}"
+                     f"（{old} 不一致）→ 换用索引命中项重打")
         self.libc_path = new_path
         self.libc_source = 'index'
         self.libc_suspect = False
@@ -1273,8 +1295,12 @@ def main():
                         help='测试超时(秒)')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='静默模式')
-    parser.add_argument('--interactive', action='store_true',
-                        help='解题成功后进入交互shell')
+    parser.add_argument('--interactive', action='store_true', help='解题成功后进入交互shell')
+    parser.add_argument('--attack', nargs=2, metavar=('HOST', 'PORT'),
+                        help='一条命令打远程：本地生成 → 打远程 → 用远程泄露校正 libc → '
+                             '再打 → 成功后进交互（断网内网场景用）')
+    parser.add_argument('--no-interactive', action='store_true',
+                        help='配合 --attack：打通后不进交互，只报告结果')
     parser.add_argument('--shell-only', action='store_true',
                         help='仅运行最新exp并进入交互shell(不重新解题)')
     parser.add_argument('--no-skill', action='store_true',
@@ -1312,6 +1338,17 @@ def main():
     )
     # 注入超时配置
     solver._test_timeout = args.timeout
+
+    # 一条命令打远程：本地生成 → 打远程 → 用远程泄露校正 libc → 再打 → 进交互
+    if getattr(args, 'attack', None):
+        from remote_attack import RemoteAttacker
+        host, port = args.attack
+        attacker = RemoteAttacker(solver, host, port,
+                                  interactive=not args.no_interactive,
+                                  timeout=max(args.timeout * 3, 30),
+                                  verbose=not args.quiet)
+        ok = attacker.attack()
+        sys.exit(0 if ok else 1)
 
     if args.recon_only:
         _run_recon_only(solver)
@@ -1397,11 +1434,9 @@ def _run_shell_only(args):
     exp_path = os.path.join(exploits_dir, exp_name)
 
     # 远程模式: 通过环境变量注入目标地址
-    env = os.environ.copy()
     remote = getattr(args, 'remote', None)
+    env = _remote_env(remote)
     if remote:
-        env['PWN_REMOTE_HOST'] = remote[0]
-        env['PWN_REMOTE_PORT'] = str(remote[1])
         print(f"🌐 远程目标: {remote[0]}:{remote[1]}")
     print(f"运行exp: {exp_name}")
     try:
