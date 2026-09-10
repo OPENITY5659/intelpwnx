@@ -884,6 +884,14 @@ class PwnSolver:
             # ====== Step 3: 简单方法优先 ======
             self.log(f"\n ③ 尝试简单方法...")
 
+            # 已经高置信度判成"专门题型"时，后面的通用栈方法不许覆盖它：
+            # 否则堆题会被 one_gadget/ret2libc 的栈模板接手，打出个假的"成功"。
+            locked = self._specialized_locked(vuln_type)
+            if locked:
+                self.log(f"  题型 {vuln_type[0]} 置信度 {vuln_type[1]} → 锁定专门模板，"
+                         "跳过通用栈方法覆盖")
+            else:
+                self.log(f"  非专门题型（{vuln_type[0]}@{vuln_type[1]}）→ 允许通用方法尝试")
 
             # 3a0: reverse-skill 签名的 BadBoy array-OOB / yes_or_no（优先于通用栈方法）
             if vuln_type[0] == 'array_oob' and vuln_type[1] >= 90:
@@ -904,6 +912,13 @@ class PwnSolver:
                 if code and self.test_exploit(timeout=40):
                     self._print_success("orange_cat_diary (House of Orange + fastbin)")
                     return True
+            # 3a0b: GoScanner 栈溢出（模板只认这一种模式，此前根本没被分派到）
+            if vuln_type[0] == 'go_stack' and vuln_type[1] >= 80:
+                self.log("  尝试 GoScanner 栈溢出 (BSS 写 /bin/sh + execve, 预读场景专用探测)...")
+                code = self.generate_exploit(analysis, gadgets)
+                if code and self.test_exploit(timeout=30):
+                    self._print_success("go_stack (GoScanner 栈溢出)")
+                    return True
 
             # 3a: ret2win — 最简单
             if vuln_type[0] == 'ret2win' and vuln_type[1] >= 80:
@@ -915,7 +930,7 @@ class PwnSolver:
             # 3a2: ret2syscall (binary有syscall+pop_rax+pop_rdi时优先，不需要libc)
             specific = gadgets.get('specific', {})
             has_syscall_gadgets = specific.get('syscall') and specific.get('pop_rax') and specific.get('pop_rdi')
-            if has_syscall_gadgets and has_overflow:
+            if has_syscall_gadgets and has_overflow and not locked:
                 self.log("  尝试ret2syscall (binary内gadget, 无需libc)...")
                 self.vuln_type = ('ret2syscall', 88, 'binary有完整syscall链')
                 code = self.generate_exploit(analysis, gadgets)
@@ -924,7 +939,7 @@ class PwnSolver:
                     return True
 
             # 3b: one_gadget (无seccomp时)
-            if gadgets.get('one_gadgets') and not has_seccomp:
+            if gadgets.get('one_gadgets') and not has_seccomp and not locked:
                 self.vuln_type = ('one_gadget', 95, '')
                 code = self.generate_exploit(analysis, gadgets)
                 if code and self.test_exploit():
@@ -940,7 +955,7 @@ class PwnSolver:
                     return True
 
             # 3d: format string
-            if 'printf' in plt:
+            if 'printf' in plt and not locked:
                 self.vuln_type = ('format_string', 70, '')
                 code = self.generate_exploit(analysis, gadgets)
                 if code and self.test_exploit():
@@ -958,8 +973,9 @@ class PwnSolver:
                     return True
 
             # 4b: ret2libc (有libc+pop_rdi)
+            # 专门题型（堆/Go/数组越界等）不做这个覆盖：栈模板套到堆题上只会产出假的"成功"。
             pop_rdi_ok = gadgets.get('pop_rdi_in_binary', False)
-            if pop_rdi_ok and has_overflow and self.libc_path:
+            if pop_rdi_ok and has_overflow and self.libc_path and not locked:
                 self.vuln_type = ('ret2libc', 80, '')
                 code = self.generate_exploit(analysis, gadgets)
                 if code and self.test_exploit():
@@ -967,7 +983,7 @@ class PwnSolver:
                     return True
 
             # 4c: ret2syscall (fallback, 使用exploit模板)
-            if specific.get('syscall') and specific.get('pop_rax') and specific.get('pop_rdi'):
+            if specific.get('syscall') and specific.get('pop_rax') and specific.get('pop_rdi') and not locked:
                 self.log("  尝试ret2syscall (exploit模板)...")
                 self.vuln_type = ('ret2syscall', 75, 'fallback')
                 code = self.generate_exploit(analysis, gadgets)
@@ -1145,6 +1161,14 @@ class PwnSolver:
         plt = gadgets.get('plt', {})
         seccomp_funcs = ['seccomp_init', 'seccomp_load', 'seccomp_rule_add']
         return any(f in plt for f in seccomp_funcs)
+
+    # 这些题型有自己的专用模板/诊断路径，通用栈方法不得覆盖它们
+    SPECIALIZED_TYPES = ('heap', 'orange_cat', 'go_stack', 'array_oob', 'yes_or_no',
+                         'ret2syscall')
+
+    def _specialized_locked(self, vuln_type):
+        """专门题型 + 高置信度 → 锁定，禁止后面的通用栈方法覆盖。"""
+        return bool(vuln_type) and vuln_type[0] in self.SPECIALIZED_TYPES and vuln_type[1] >= 90
 
     def _try_auto_orw(self, analysis, gadgets):
         """自动尝试ORW绕过seccomp"""

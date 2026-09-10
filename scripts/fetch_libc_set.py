@@ -18,6 +18,12 @@ dpkg-deb 解出 libc 与配对 loader，落成与 libcs/2.32 一致的目录布�
     python3 scripts/fetch_libc_set.py --arch i386        # 只抓 32 位
     python3 scripts/fetch_libc_set.py --no-network       # 只用 libcs/.downloads 里已有的 deb
     python3 scripts/fetch_libc_set.py --rebuild-index    # 抓完后刷新离线索引
+
+已知缺口（2026-09 实测）：
+    debian9(2.24) / debian10(2.28) 在现网 pool 里已经下架，会报 "pool 里找不到"。
+    这两个版本在 CTF 里很少见；若确实需要，从 archive.debian.org 手工下载 deb 放进
+    libcs/.downloads/ 后用 --no-network 解包即可。已覆盖的常用版本：
+    2.23 / 2.27 / 2.31 / 2.35 / 2.39（Ubuntu）与 2.31 / 2.36（Debian），含 amd64 + i386。
 """
 import argparse
 import hashlib

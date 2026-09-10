@@ -108,9 +108,13 @@ class AdaptiveSolver:
             
             # 初始化该方法的基础参数
             base_params = self._init_params(method, analysis, gadgets)
-            
+
+            # 有些方法一次就能定性（例如堆模板内部自己做偏移枚举/诊断），
+            # 重复跑同样的动作纯属浪费总预算。
+            method_limit = 1 if method.get('single_attempt') else self.config.max_attempts_per_method
+
             # 在该方法内进行自适应循环
-            while method_attempts[method_name] < self.config.max_attempts_per_method:
+            while method_attempts[method_name] < method_limit:
                 if attempt_id >= self.config.max_total_attempts:
                     self.log("⛔ 达到总尝试上限")
                     self._print_summary()
@@ -191,7 +195,13 @@ class AdaptiveSolver:
         )
         
         methods = []
-        
+
+        # 0. 专门模式（go_stack 等）优先：这些题型的通用栈方法本来就不适用
+        pattern_ids = {m.get('pattern_id') if isinstance(m, dict) else getattr(m, 'pattern_id', None)
+                       for m in (analysis.get('pattern_matches') or [])}
+        if 'go_stack_overflow' in pattern_ids:
+            methods.append({'name': 'go_stack', 'priority': 98, 'single_attempt': True})
+
         # 1. ret2win
         real_win = [(n, a) for n, a in funcs.get('win', [])
                     if not n.startswith('_') and 'plt.' not in n]
@@ -232,10 +242,11 @@ class AdaptiveSolver:
         if specific.get('syscall') and specific.get('pop_rax') and specific.get('pop_rdi'):
             methods.append({'name': 'ret2syscall', 'priority': 80})
         
-        # 6. heap
+        # 6. heap。堆模板内部自己会做偏移枚举/结构化诊断，重复跑同一动作没有意义，
+        #    所以只给一次机会（single_attempt），把余额留给别的方法。
         heap_menu = analysis.get('heap_menu') or funcs.get('heap_menu') or {}
         if heap_menu.get('heap_menu'):
-            methods.append({'name': 'heap', 'priority': 75})
+            methods.append({'name': 'heap', 'priority': 75, 'single_attempt': True})
         
         # 7. ROP。seccomp 下通用 system ROP 不适用；仅 ret2syscall/ORW 可尝试。
         if funcs.get('dangerous') and protections.get('nx', True) and not has_seccomp:

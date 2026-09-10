@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-10T20:47:32",
+  "generated_at": "2026-09-10T20:59:28",
   "entries": [
     {
       "path": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/unlink/2016_zctf_note2/libc.so.6",
@@ -185,7 +185,7 @@
         "execve": 722544,
         "str_bin_sh": 1423403
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/fmtstr/2015-CSAW-contacts/libc.so"
     },
     {
@@ -216,7 +216,7 @@
         "execve": 722544,
         "str_bin_sh": 1423403
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/fmtstr/2016-CCTF-pwn3/libc.so"
     },
     {
@@ -247,7 +247,7 @@
         "execve": 722544,
         "str_bin_sh": 1423403
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/fmtstr/blind_fmt_got/libc.so"
     },
     {
@@ -278,7 +278,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/chunk-extend-shrink/2015_hacklu_bookstore/libc.so.6"
     },
     {
@@ -309,7 +309,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/chunk-extend-shrink/hitcontraning_lab13/libc.so.6"
     },
     {
@@ -340,7 +340,7 @@
         "execve": 722912,
         "str_bin_sh": 1423883
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/fastbin-attack/2014_hack.lu_oreo/libc.so.6"
     },
     {
@@ -371,7 +371,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/fastbin-attack/2015_9447ctf_search-engine/libc.so.6"
     },
     {
@@ -402,7 +402,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/fastbin-attack/2017_0ctf_babyheap/libc.so.6"
     },
     {
@@ -433,7 +433,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/house-of-einherjar/2016_seccon_tinypad/libc.so.6"
     },
     {
@@ -464,7 +464,7 @@
         "execve": 722912,
         "str_bin_sh": 1423883
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/house-of-force/2016_bctf_bcloud/libc.so.6"
     },
     {
@@ -495,7 +495,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/unlink/2014_hitcon_stkof/libc.so.6"
     },
     {
@@ -526,7 +526,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/heap/unlink/2017_insomni'hack_wheelofrobots/libc.so.6"
     },
     {
@@ -557,7 +557,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/io-file/2018_hctf_the_end/libc-2.23.so"
     },
     {
@@ -588,7 +588,7 @@
         "execve": 837488,
         "str_bin_sh": 1625367
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/brop/hctf2016-brop/libc.so"
     },
     {
@@ -619,7 +619,7 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/fake_frame/StarCTF2018-note/libc.so.6"
     },
     {
@@ -650,7 +650,7 @@
         "execve": 837488,
         "str_bin_sh": 1625367
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2__libc_csu_init/hitcon-level5/libc.so"
     },
     {
@@ -681,7 +681,7 @@
         "execve": 837488,
         "str_bin_sh": 1625367
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2__libc_csu_init/hitcon-level5/libc.so.6"
     },
     {
@@ -712,7 +712,7 @@
         "execve": 722544,
         "str_bin_sh": 1423403
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2libc/ret2libc3/libc.so"
     },
     {
@@ -743,7 +743,7 @@
         "execve": 722544,
         "str_bin_sh": 1423403
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/rop/2013-PlaidCTF-ropasaurusrex/libc.so"
     },
     {
@@ -774,8 +774,70 @@
         "execve": 837488,
         "str_bin_sh": 1625431
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/stacksmashes/guess/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/libc-2.23.so",
+      "sha256": "926ee3653de7b71c8567061f3a4dfbc2ea91b6df2b49a05f11351fe1addf20cf",
+      "size": 1868984,
+      "mtime_ns": 1619028841000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.23",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.23-0ubuntu11.3) stable release version 2.23",
+      "symbols": {
+        "puts": 456352,
+        "printf": 350224,
+        "read": 1012560,
+        "write": 1012656,
+        "system": 283552,
+        "__libc_start_main": 132944,
+        "malloc": 541056,
+        "free": 542016,
+        "setcontext": 293712,
+        "__free_hook": 3958696,
+        "__malloc_hook": 3951376,
+        "_IO_2_1_stdout_": 3954208,
+        "_IO_2_1_stdin_": 3950816,
+        "open": 1012016,
+        "exit": 237632,
+        "execve": 837616,
+        "str_bin_sh": 1625687
+      },
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
+      "source": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/libc-2.23.so"
+    },
+    {
+      "path": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/libc-2.23.so",
+      "sha256": "dcb8eed5ab3c45317bb82644931c0c3b60fa2f627801e8866538a5c3c4b83341",
+      "size": 1790580,
+      "mtime_ns": 1619033931000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.23",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.23-0ubuntu11.3) stable release version 2.23",
+      "symbols": {
+        "puts": 392368,
+        "printf": 300672,
+        "read": 875552,
+        "write": 875664,
+        "system": 241072,
+        "__libc_start_main": 99664,
+        "malloc": 462784,
+        "free": 464176,
+        "setcontext": 250064,
+        "__free_hook": 1788080,
+        "__malloc_hook": 1783656,
+        "_IO_2_1_stdout_": 1785184,
+        "_IO_2_1_stdin_": 1783200,
+        "open": 874512,
+        "exit": 190944,
+        "execve": 723136,
+        "str_bin_sh": 1424171
+      },
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/ld-2.23.so",
+      "source": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-i386/lib/i386-linux-gnu/libc-2.23.so"
     },
     {
       "path": "pwn题目解析/ciscn/extracted/1-orange_cat_diary (1)/1-orange_cat_diary/libc-2.23.so",
@@ -805,7 +867,7 @@
         "execve": 837616,
         "str_bin_sh": 1625687
       },
-      "loader": "pwn_solver/glibc_compat/ld-2.23.so",
+      "loader": "libcs/glibc-2.23-0ubuntu11.3-ubuntu16.04-amd64/lib/x86_64-linux-gnu/ld-2.23.so",
       "source": "pwn题目解析/ciscn/extracted/1-orange_cat_diary (1)/1-orange_cat_diary/libc-2.23.so"
     },
     {
@@ -867,7 +929,7 @@
         "execve": 937616,
         "str_bin_sh": 1786106
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-amd64/lib/x86_64-linux-gnu/ld-2.27.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2dlresolve/2015-hitcon-quals-blinkroot/libc.so.6"
     },
     {
@@ -898,7 +960,7 @@
         "execve": 937616,
         "str_bin_sh": 1786106
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-amd64/lib/x86_64-linux-gnu/ld-2.27.so",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2dlresolve/2015-hitcon-quals-readable/libc.so.6"
     },
     {
@@ -931,6 +993,68 @@
       },
       "loader": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2dlresolve/2015-xdctf-pwn200/64/partial-relro/ld-linux-x86-64.so.2",
       "source": "external_challs/ctf-challenges/pwn/linux/user-mode/stackoverflow/ret2dlresolve/2015-xdctf-pwn200/64/partial-relro/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-amd64/lib/x86_64-linux-gnu/libc-2.27.so",
+      "sha256": "acf8ac6d219b657af09328abde95a6a52a3ce7019c6717cade77db5634498866",
+      "size": 2030928,
+      "mtime_ns": 1651573179000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.27",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1.6) stable release version 2.27",
+      "symbols": {
+        "puts": 526704,
+        "printf": 413248,
+        "read": 1114144,
+        "write": 1114352,
+        "system": 324640,
+        "__libc_start_main": 138144,
+        "malloc": 618528,
+        "free": 620816,
+        "setcontext": 335952,
+        "__free_hook": 4118760,
+        "__malloc_hook": 4111408,
+        "_IO_2_1_stdout_": 4114272,
+        "_IO_2_1_stdin_": 4110848,
+        "open": 1113072,
+        "exit": 274704,
+        "execve": 936672,
+        "str_bin_sh": 1785224
+      },
+      "loader": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-amd64/lib/x86_64-linux-gnu/ld-2.27.so",
+      "source": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-amd64/lib/x86_64-linux-gnu/libc-2.27.so"
+    },
+    {
+      "path": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-i386/lib/i386-linux-gnu/libc-2.27.so",
+      "sha256": "93b9dc92e7a06ae29b3187469f8555d590f7e20aaa0c353d784010148ea5e6e0",
+      "size": 1942936,
+      "mtime_ns": 1651573179000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.27",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1.6) stable release version 2.27",
+      "symbols": {
+        "puts": 425360,
+        "printf": 333088,
+        "read": 945728,
+        "write": 945936,
+        "system": 250832,
+        "__libc_start_main": 102064,
+        "malloc": 503728,
+        "free": 505312,
+        "setcontext": 261392,
+        "__free_hook": 1939664,
+        "__malloc_hook": 1935240,
+        "_IO_2_1_stdout_": 1936768,
+        "_IO_2_1_stdin_": 1934784,
+        "open": 944320,
+        "exit": 198048,
+        "execve": 784000,
+        "str_bin_sh": 1565147
+      },
+      "loader": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-i386/lib/i386-linux-gnu/ld-2.27.so",
+      "source": "libcs/glibc-2.27-3ubuntu1.6-ubuntu18.04-i386/lib/i386-linux-gnu/libc-2.27.so"
     },
     {
       "path": "pwn题目解析/BadBoy/程序/libc.so.6",
@@ -1053,7 +1177,7 @@
         "execve": 930160,
         "str_bin_sh": 1787325
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-amd64/lib/x86_64-linux-gnu/ld-2.31.so",
       "source": "cache/ciscn_dl/pwn2025/PWN-easy_rw/libc-2.31.so"
     },
     {
@@ -1084,8 +1208,132 @@
         "execve": 930160,
         "str_bin_sh": 1787325
       },
-      "loader": null,
+      "loader": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-amd64/lib/x86_64-linux-gnu/ld-2.31.so",
       "source": "cache/ciscn_dl/pwn2025/PWN-minihttpd/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-amd64/lib/x86_64-linux-gnu/libc-2.31.so",
+      "sha256": "53b909551f8e581120ddc2d24cfb5df76c52e3c2e2a5dac0d202b25638b3e902",
+      "size": 2029592,
+      "mtime_ns": 1748246977000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.31",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.31-0ubuntu9.18) stable release version 2.31",
+      "symbols": {
+        "puts": 541728,
+        "printf": 400528,
+        "read": 1106400,
+        "write": 1106560,
+        "system": 336528,
+        "__libc_start_main": 147344,
+        "malloc": 631008,
+        "free": 632528,
+        "setcontext": 347936,
+        "__free_hook": 2027080,
+        "__malloc_hook": 2018160,
+        "_IO_2_1_stdout_": 2021024,
+        "_IO_2_1_stdin_": 2017664,
+        "open": 1105664,
+        "exit": 289344,
+        "execve": 930160,
+        "str_bin_sh": 1787325
+      },
+      "loader": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-amd64/lib/x86_64-linux-gnu/ld-2.31.so",
+      "source": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-amd64/lib/x86_64-linux-gnu/libc-2.31.so"
+    },
+    {
+      "path": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-i386/lib/i386-linux-gnu/libc-2.31.so",
+      "sha256": "798b69f63b56fe5e73b3a1d53a7e221f6f732796dc7b272454e6171dddf7420d",
+      "size": 2020588,
+      "mtime_ns": 1748246977000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.31",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.31-0ubuntu9.18) stable release version 2.31",
+      "symbols": {
+        "puts": 449600,
+        "printf": 328368,
+        "read": 990784,
+        "write": 990944,
+        "system": 268160,
+        "__libc_start_main": 110048,
+        "malloc": 535920,
+        "free": 537504,
+        "setcontext": 278592,
+        "__free_hook": 2018196,
+        "__malloc_hook": 2012968,
+        "_IO_2_1_stdout_": 2014496,
+        "_IO_2_1_stdin_": 2012544,
+        "open": 989728,
+        "exit": 213184,
+        "execve": 824608,
+        "str_bin_sh": 1631075
+      },
+      "loader": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-i386/lib/i386-linux-gnu/ld-2.31.so",
+      "source": "libcs/glibc-2.31-0ubuntu9.18-ubuntu20.04-i386/lib/i386-linux-gnu/libc-2.31.so"
+    },
+    {
+      "path": "libcs/glibc-2.31-13+deb11u11-debian11-amd64/lib/x86_64-linux-gnu/libc-2.31.so",
+      "sha256": "091d7280857c4efff84c850d17ef263a0cae66a572304543fe3d550dfc398231",
+      "size": 1901536,
+      "mtime_ns": 1723713696000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.31",
+      "version_string": "GNU C Library (Debian GLIBC 2.31-13+deb11u11) stable release version 2.31",
+      "symbols": {
+        "puts": 467680,
+        "printf": 343456,
+        "read": 963680,
+        "write": 963840,
+        "system": 286464,
+        "__libc_start_main": 146576,
+        "malloc": 548320,
+        "free": 549904,
+        "setcontext": 296864,
+        "__free_hook": 1905040,
+        "__malloc_hook": 1895280,
+        "_IO_2_1_stdout_": 1898144,
+        "_IO_2_1_stdin_": 1894784,
+        "open": 962928,
+        "exit": 243472,
+        "execve": 818336,
+        "str_bin_sh": 1659218
+      },
+      "loader": "libcs/glibc-2.31-13+deb11u11-debian11-amd64/lib/x86_64-linux-gnu/ld-2.31.so",
+      "source": "libcs/glibc-2.31-13+deb11u11-debian11-amd64/lib/x86_64-linux-gnu/libc-2.31.so"
+    },
+    {
+      "path": "libcs/glibc-2.31-13+deb11u11-debian11-i386/lib/i386-linux-gnu/libc-2.31.so",
+      "sha256": "e314987643cf7e3795054c0f16be0bcd87b583ad93a757ec45763e3d5c5944b7",
+      "size": 1987668,
+      "mtime_ns": 1723713696000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.31",
+      "version_string": "GNU C Library (Debian GLIBC 2.31-13+deb11u11) stable release version 2.31",
+      "symbols": {
+        "puts": 439760,
+        "printf": 327952,
+        "read": 970976,
+        "write": 971136,
+        "system": 266480,
+        "__libc_start_main": 110032,
+        "malloc": 524704,
+        "free": 526240,
+        "setcontext": 276624,
+        "__free_hook": 1990104,
+        "__malloc_hook": 1984296,
+        "_IO_2_1_stdout_": 1985824,
+        "_IO_2_1_stdin_": 1983872,
+        "open": 969824,
+        "exit": 211520,
+        "execve": 810448,
+        "str_bin_sh": 1602360
+      },
+      "loader": "libcs/glibc-2.31-13+deb11u11-debian11-i386/lib/i386-linux-gnu/ld-2.31.so",
+      "source": "libcs/glibc-2.31-13+deb11u11-debian11-i386/lib/i386-linux-gnu/libc-2.31.so"
     },
     {
       "path": "libcs/2.32/lib/x86_64-linux-gnu/libc-2.32.so",
@@ -1274,6 +1522,68 @@
       "source": "cache/ciscn_dl/pwn2024/Pwn-magic_vm/libc.so.6"
     },
     {
+      "path": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-amd64/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "b2cf6c33b74d2f22543b7a469a75b538911e690f769d0b238843a49465b83793",
+      "size": 2220400,
+      "mtime_ns": 1788445204000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.35",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.35-0ubuntu3.15) stable release version 2.35",
+      "symbols": {
+        "puts": 527888,
+        "printf": 394992,
+        "read": 1132832,
+        "write": 1132992,
+        "system": 331120,
+        "__libc_start_main": 171456,
+        "malloc": 675936,
+        "free": 676768,
+        "setcontext": 342496,
+        "__free_hook": 2233512,
+        "__malloc_hook": 2233504,
+        "_IO_2_1_stdout_": 2209664,
+        "_IO_2_1_stdin_": 2206368,
+        "open": 1132080,
+        "exit": 284144,
+        "execve": 962624,
+        "str_bin_sh": 1934968
+      },
+      "loader": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-amd64/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "source": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-amd64/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-i386/lib/i386-linux-gnu/libc.so.6",
+      "sha256": "e83d188a18413705d7b86723eca3cfd9251f717d37ee85d13fabcafadb267471",
+      "size": 2280756,
+      "mtime_ns": 1788445204000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.35",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.35-0ubuntu3.15) stable release version 2.35",
+      "symbols": {
+        "puts": 471680,
+        "printf": 359056,
+        "read": 1090048,
+        "write": 1090256,
+        "system": 295280,
+        "__libc_start_main": 136544,
+        "malloc": 624752,
+        "free": 625504,
+        "setcontext": 305824,
+        "__free_hook": 2284344,
+        "__malloc_hook": 2284340,
+        "_IO_2_1_stdout_": 2272672,
+        "_IO_2_1_stdin_": 2270752,
+        "open": 1088640,
+        "exit": 238688,
+        "execve": 911408,
+        "str_bin_sh": 1822933
+      },
+      "loader": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-i386/lib/i386-linux-gnu/ld-linux.so.2",
+      "source": "libcs/glibc-2.35-0ubuntu3.15-ubuntu22.04-i386/lib/i386-linux-gnu/libc.so.6"
+    },
+    {
       "path": "pwn题目解析/ciscn/extracted/2-ezbuf/2-ezbuf/libc.so.6",
       "sha256": "67d9e00d38d59674367ca4591666c67e5dfad9e4fdd3861a59d6f26ffea87f65",
       "size": 2220400,
@@ -1336,6 +1646,130 @@
       "source": "pwn题目解析/ciscn/extracted/5-EzHeap/5-EzHeap/libc.so.6"
     },
     {
+      "path": "libcs/glibc-2.36-9+deb12u14-debian12-amd64/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "6b4a45352fd0c540a9c7c718f35ce8c8e46a4e482f9d3885a910c32d1a0e1421",
+      "size": 1926232,
+      "mtime_ns": 1777320873000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.36",
+      "version_string": "GNU C Library (Debian GLIBC 2.36-9+deb12u14) stable release version 2.36",
+      "symbols": {
+        "puts": 489856,
+        "printf": 337328,
+        "read": 1016480,
+        "write": 1016640,
+        "system": 312464,
+        "__libc_start_main": 160384,
+        "malloc": 624944,
+        "free": 626416,
+        "setcontext": 266208,
+        "__free_hook": 1942600,
+        "__malloc_hook": 1942592,
+        "_IO_2_1_stdout_": 1918816,
+        "_IO_2_1_stdin_": 1915520,
+        "open": 1015744,
+        "exit": 255616,
+        "execve": 871120,
+        "str_bin_sh": 1667121
+      },
+      "loader": "libcs/glibc-2.36-9+deb12u14-debian12-amd64/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "source": "libcs/glibc-2.36-9+deb12u14-debian12-amd64/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.36-9+deb12u14-debian12-i386/lib/i386-linux-gnu/libc.so.6",
+      "sha256": "ef7792b351dba25b48ad223224966db839b132efd7755d26f422ba2eb0f1a6a1",
+      "size": 2225200,
+      "mtime_ns": 1777320873000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.36",
+      "version_string": "GNU C Library (Debian GLIBC 2.36-9+deb12u14) stable release version 2.36",
+      "symbols": {
+        "puts": 478928,
+        "printf": 343904,
+        "read": 1094496,
+        "write": 1094688,
+        "system": 313632,
+        "__libc_start_main": 144144,
+        "malloc": 629104,
+        "free": 629824,
+        "setcontext": 255968,
+        "__free_hook": 2231096,
+        "__malloc_hook": 2231092,
+        "_IO_2_1_stdout_": 2219424,
+        "_IO_2_1_stdin_": 2217504,
+        "open": 1093184,
+        "exit": 245088,
+        "execve": 918160,
+        "str_bin_sh": 1793962
+      },
+      "loader": "libcs/glibc-2.36-9+deb12u14-debian12-i386/lib/i386-linux-gnu/ld-linux.so.2",
+      "source": "libcs/glibc-2.36-9+deb12u14-debian12-i386/lib/i386-linux-gnu/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-amd64/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "size": 2125328,
+      "mtime_ns": 1784827093000000000,
+      "e_machine": 62,
+      "arch": "amd64",
+      "libc_version": "2.39",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.39-0ubuntu8.8) stable release version 2.39",
+      "symbols": {
+        "puts": 556224,
+        "printf": 393472,
+        "read": 1162112,
+        "write": 1164944,
+        "system": 362320,
+        "__libc_start_main": 172544,
+        "malloc": 710480,
+        "free": 712240,
+        "setcontext": 305504,
+        "__free_hook": 2138440,
+        "__malloc_hook": 2138432,
+        "_IO_2_1_stdout_": 2115008,
+        "_IO_2_1_stdin_": 2111712,
+        "open": 1159760,
+        "exit": 293792,
+        "execve": 978992,
+        "str_bin_sh": 1881135
+      },
+      "loader": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-amd64/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "source": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-amd64/usr/lib/x86_64-linux-gnu/libc.so.6"
+    },
+    {
+      "path": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-i386/usr/lib/i386-linux-gnu/libc.so.6",
+      "sha256": "5dfd345f387aefb758357f571e0a00d5b93432b14011109f035cb27050996838",
+      "size": 2309032,
+      "mtime_ns": 1784827093000000000,
+      "e_machine": 3,
+      "arch": "i386",
+      "libc_version": "2.39",
+      "version_string": "GNU C Library (Ubuntu GLIBC 2.39-0ubuntu8.8) stable release version 2.39",
+      "symbols": {
+        "puts": 491440,
+        "printf": 359856,
+        "read": 1140752,
+        "write": 1145328,
+        "system": 328752,
+        "__libc_start_main": 150768,
+        "malloc": 649728,
+        "free": 651360,
+        "setcontext": 267680,
+        "__free_hook": 2308632,
+        "__malloc_hook": 2308628,
+        "_IO_2_1_stdout_": 2297152,
+        "_IO_2_1_stdin_": 2295232,
+        "open": 1136624,
+        "exit": 256976,
+        "execve": 928976,
+        "str_bin_sh": 1850856
+      },
+      "loader": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-i386/usr/lib/i386-linux-gnu/ld-linux.so.2",
+      "source": "libcs/glibc-2.39-0ubuntu8.8-ubuntu24.04-i386/usr/lib/i386-linux-gnu/libc.so.6"
+    },
+    {
       "path": "cache/ciscn_dl/pwn2025/PWN-robo/libc.so.6",
       "sha256": "de6669cda3275eab72375065e4a681826065494f610a37f959ee66ebb7b59899",
       "size": 2326088,
@@ -1366,5 +1800,6 @@
       "loader": "cache/ciscn_dl/pwn2025/PWN-robo/ld-linux-x86-64.so.2",
       "source": "cache/ciscn_dl/pwn2025/PWN-robo/libc.so.6"
     }
-  ]
+  ],
+  "schema": 2
 }
