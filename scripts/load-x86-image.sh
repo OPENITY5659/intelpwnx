@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Load PwnSolver x86_64 sandbox image from a release tar.zst.
 # Download example:
-#   gh release download v0.1.0-x86-image -R OPENITY5659/PwnSolver -p pwnsolver-x86.tar.zst
+#   gh release download v0.1.0-x86-image -R OPENITY5659/intelpwnx -p pwnsolver-x86.tar.zst
 # Then:
 #   scripts/load-x86-image.sh ./pwnsolver-x86.tar.zst
 set -euo pipefail

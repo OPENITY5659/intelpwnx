@@ -67,3 +67,6 @@ challenges/two_stage
 challenges/loop_menu
 # 生成的 LibcSearcher 本地 db（用 scripts/build_libcsearcher_db.py 一条命令重建）
 pwn_solver/vendor/LibcSearcher/db/
+
+# 下载/解包出来的 libc 本体（几百 MB，用 scripts/fetch_libc_set.py 或 dump_libc_versions.py 再生）
+libcs/
