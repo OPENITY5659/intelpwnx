@@ -44,11 +44,10 @@ def _candidate_dirs():
         val = os.environ.get(env_name)
         if val:
             dirs.append(val)
-    # PwnSolver 仓库的离线索引（本机常见位置，找不到就跳过）
+    # PwnSolver 仓库的离线索引（相对本包推导，换机器也能用）
     for guess in (
         os.path.join(_PKG_DIR, '..', '..', '..', 'pwn_solver', 'libc_db'),
-        '/mnt/d/CTF_Slover/PwnSolver/pwn_solver/libc_db',
-        'D:/CTF_Slover/PwnSolver/pwn_solver/libc_db',
+        os.path.join(_PKG_DIR, '..', '..', 'libc_db'),
     ):
         dirs.append(os.path.abspath(guess))
     seen, out = set(), []
